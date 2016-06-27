@@ -1,4 +1,4 @@
-import asyncpg
+import asyncdispatch, asyncpg
 
 proc testTypes(conn: apgConnection) {.async.} =
   block: # empty parameters test
@@ -8,13 +8,13 @@ proc testTypes(conn: apgConnection) {.async.} =
     doAssert(value == "3")
     # expect: "3"
 
-  block: # char type test
-    var a = 0x30'u8
-    var res = await exec(conn, "SELECT $1 || $2", a, 0x31'u8)
-    var value = getValue(res[0])
-    close(res)
-    doAssert(value == "01")
-    # expect: "01"
+  # block: # char type test
+  #   var a = 0x30'u8
+  #   var res = await exec(conn, "SELECT $1 || $2", a, 0x31'u8)
+  #   var value = getValue(res[0])
+  #   close(res)
+  #   doAssert(value == "01")
+  #   # expect: "01"
 
   # block: # integer type test
   #   var a = 0x30'i16
@@ -198,5 +198,5 @@ proc testTypes(conn: apgConnection) {.async.} =
 
 var connStr = "host=localhost port=5432 dbname=travis_ci_test user=postgres"
 var conn = waitFor connect(connStr)
-waitFor testTypes(a)
+waitFor testTypes(conn)
 
