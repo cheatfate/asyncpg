@@ -1,0 +1,16 @@
+sudo: false
+language: c
+os:
+  - linux
+addons:
+
+before_script:
+  - git clone https://github.com/nim-lang/Nim.git
+  - cd Nim
+  - git clone --depth 1 https://github.com/nim-lang/csources
+  - cd csources && sh build.sh
+  - cd ..
+  - bin/nim c koch
+  - ./koch boot -d:release
+script:
+  - nim
