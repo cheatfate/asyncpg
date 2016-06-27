@@ -12,7 +12,8 @@ before_script:
   - cd ..
   - bin/nim c koch
   - ./koch boot -d:release
-  - export PATH=$(pwd)/bin
+  - export PATH=$(pwd)/bin;$PATH
   - cd ..
+
 script:
   - nim
