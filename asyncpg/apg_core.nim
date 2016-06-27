@@ -4,8 +4,13 @@ import byteswap, apg_array, apg_json
 type
   apgConnection* = ref object of RootRef
     pgconn: PPGconn
+
   apgResult* = ref object of RootRef
     pgress: seq[PPGresult]
+
+  apgPool* = ref object of RootRef
+    connections: seq[apgConnection]
+    futures: seq[Future[void]]
 
   Row* = seq[string]  ## a row of a dataset. NULL database values will be
                       ## converted to nil.
@@ -17,10 +22,37 @@ elif defined(macosx):
 else:
   const dllName = "libpq.so(.5|)"
 
-proc pgEncodingToChar(encoding: int32): cstring 
+proc pgEncodingToChar(encoding: int32): cstring
      {.cdecl, dynlib: dllName, importc: "pg_encoding_to_char"}
 proc pqlibVersion(): cint
      {.cdecl, dynlib: dllName, importc: "PQlibVersion".}
+
+proc getFreeConnection(pool: apgPool): Future[int] =
+  var retFuture = newFuture[int]("asyncpg.getFreeConnection")
+  proc cb() =
+    if not retFuture.finished:
+      var index = 0
+      while index < len(pool.futures):
+        let fut = pool.futures[index]
+        if fut == nil or fut.finished:
+          var repFuture = newFuture[void]("asyncpg.pool." & $index)
+          pool.futures[index] = repFuture
+          retFuture.complete(index)
+          break
+        inc(index)
+  cb()
+  # this code will run only if there no available connections left
+  if not retFuture.finished:
+    var index = 0
+    while index < len(pool.futures):
+      pool.futures[index].callback = cb
+      inc(index)
+  return retFuture
+
+proc newPool*(size = 10): apgPool =
+  result = apgPool()
+  result.connections = newSeq[apgConnection](size)
+  result.futures = newSeq[Future[void]](size)
 
 proc connect*(connection: string): Future[apgConnection] =
   var retFuture = newFuture[apgConnection]("asyncpg.connect")
@@ -57,7 +89,7 @@ proc connect*(connection: string): Future[apgConnection] =
 
 proc reset*(conn: apgConnection): Future[void] =
   var retFuture = newFuture[void]("asyncpg.reset")
-  
+
   proc cb(fd: AsyncFD): bool {.closure,gcsafe.} =
     if not retFuture.finished:
       case pqresetPoll(conn.pgconn)
@@ -97,6 +129,17 @@ proc close*(conn: apgConnection) =
     conn.pgconn = nil
   else:
     raise newException(ValueError, "Connection is already closed")
+
+proc connect*(pool: apgPool, connection: string): Future[void] {.async.} =
+  var i = 0
+  while i < len(pool.connections):
+    pool.connections[i] = await connect(connection)
+    inc(i)
+
+proc close*(pool: apgPool): Future[void] {.async.} =
+  var i = 0
+  while i < len(pool.connections):
+    close(pool.connections[i])
 
 proc execAsync(conn: apgConnection, statement: string, pN: int32, pT: POid,
            pV: cstringArray, pL, pF: ptr int32, rF: int32): Future[apgResult] =
@@ -150,6 +193,16 @@ proc execAsync(conn: apgConnection, statement: string, pN: int32, pT: POid,
     discard cb(fd)
   return retFuture
 
+proc execPoolAsync(pool: apgPool, statement: string, pN: int32, pT: POid,
+                   pV: cstringArray, pL, pF: ptr int32,
+                   rF: int32): Future[apgResult] {.async.} =
+  result = nil
+  var index = await getFreeConnection(pool)
+  result = await execAsync(pool.connections[index], statement, pN, pT,
+                           pV, pL, pF, rF)
+  pool.futures[index].complete()
+  return result
+
 proc len*(apgres: apgResult): int =
   result = len(apgres.pgress)
 
@@ -188,7 +241,7 @@ proc getRow*(pgres: PPGresult): Row =
   setRow(pgres, result, 0, L)
   pqclear(pgres)
 
-proc getRows*(pgres: PPGresult, rows: int): seq[Row] = 
+proc getRows*(pgres: PPGresult, rows: int): seq[Row] =
   var L = pqnfields(pgres)
   var R = pqntuples(pgres).int
   if (rows != -1) and (rows < R):
@@ -231,26 +284,17 @@ proc getVersion*(): int =
 # exec macro
 #
 
-proc newVarArray(n: NimNode, b: NimNode): NimNode {.compileTime.} =
+# shows error with linenumber and column for argument caused error
+proc showError(s: string, n: NimNode = nil) {.compileTime.} =
+  if isNil(n):
+    error(s)
+  else:
+    error(s & ", at " & lineinfo(n))
+# var <n> = <v>
+proc newVarArray(n, v: NimNode): NimNode {.compileTime.} =
   result = newNimNode(nnkVarSection).add(
-    newNimNode(nnkIdentDefs).add(n, newEmptyNode(), b)
+    newNimNode(nnkIdentDefs).add(n, newEmptyNode(), v)
   )
-
-# var <n>: array[<c>, <t>]
-# proc newVarArray(n: NimNode, t: string, c: int): NimNode {.compileTime.} =
-#   result = newNimNode(nnkVarSection).add(
-#     newNimNode(nnkIdentDefs).add(
-#       n,
-#       newNimNode(nnkBracketExpr).add(
-#         newIdentNode(!"array"), newLit(c), newIdentNode(!t)
-#       ), newEmptyNode()
-#     )
-#   )
-# <n>[<i>] = <v>
-# proc assignArray(n: NimNode, i: int, v: NimNode): NimNode {.compileTime.} =
-#   result = newAssignment(
-#     newNimNode(nnkBracketExpr).add(n, newLit(i)), v
-#   )
 # cast[pointer](addr <n>)
 proc castPointer(n: NimNode): NimNode {.compileTime.} =
   result = newNimNode(nnkCast).add(
@@ -282,32 +326,42 @@ proc callRaw(n: NimNode): NimNode {.compileTime.} =
 proc castSome(n: NimNode, v: string): NimNode {.compileTime.} =
   result = newNimNode(nnkCast).add(newIdentNode(!v), n)
 # var <n> = prepare(<v>)
-proc newVarInteger(n: NimNode, v: NimNode): NimNode {.compileTime.} =
+proc newVarInteger(n, v: NimNode): NimNode {.compileTime.} =
   result = newNimNode(nnkVarSection).add(
     newNimNode(nnkIdentDefs).add(
       n, newEmptyNode(), newNimNode(nnkCall).add(newIdentNode(!"prepare"), v)
     )
   )
 # var <n> = <v>
-proc newVarSimple(n: NimNode, v: NimNode): NimNode {.compileTime.} =
+proc newVarSimple(n, v: NimNode): NimNode {.compileTime.} =
   result = newNimNode(nnkVarSection).add(
     newNimNode(nnkIdentDefs).add(n, newEmptyNode(), v)
   )
 # var <n> = cast[<i>](<v>)
-proc newVarCast(n: NimNode, i: NimNode, v: NimNode): NimNode {.compileTime.} =
+proc newVarCast(n, i, v: NimNode): NimNode {.compileTime.} =
   result = newNimNode(nnkVarSection).add(
     newNimNode(nnkIdentDefs).add(
       n, newEmptyNode(), newNimNode(nnkCast).add(v, i)
     )
   )
-#
+# var <n> = <c>()
 proc newVarExec(n, c: NimNode): NimNode {.compileTime.} =
   result = newNimNode(nnkVarSection).add(
     newNimNode(nnkIdentDefs).add(n, newEmptyNode(), c)
   )
+# var <n> = $(<v>)
+proc newVarStringify(n, v: NimNode): NimNode {.compileTime.} =
+  result = newNimNode(nnkVarSection).add(
+    newNimNode(nnkIdentDefs).add(n, newEmptyNode(),
+      newNimNode(nnkPrefix).add(
+        newIdentNode(!"$"),
+        newNimNode(nnkPar).add(v)
+      )
+    )
+  )
 
 # var <n> = prepare(cast[<i>](<v>))
-proc newVarFloat(n: NimNode, i: NimNode, v: NimNode): NimNode {.compileTime.} =
+proc newVarFloat(n, i, v: NimNode): NimNode {.compileTime.} =
   result = newNimNode(nnkVarSection).add(
     newNimNode(nnkIdentDefs).add(
       n, newEmptyNode(),
@@ -318,7 +372,7 @@ proc newVarFloat(n: NimNode, i: NimNode, v: NimNode): NimNode {.compileTime.} =
     )
   )
 # var <n> = newPgArray((<v>))
-proc newVarSeq(n: NimNode, v: NimNode, s: string): NimNode {.compileTime.} =
+proc newVarSeq(n, v: NimNode, s: string): NimNode {.compileTime.} =
   result = newNimNode(nnkVarSection).add(
     newNimNode(nnkIdentDefs).add(
       n, newEmptyNode(),
@@ -330,13 +384,19 @@ proc newVarSeq(n: NimNode, v: NimNode, s: string): NimNode {.compileTime.} =
       )
     )
   )
+# var <n> = newPgJson((<v>))
+proc newVarJson(n, v: NimNode): NimNode {.compileTime.} =
+  result = newNimNode(nnkVarSection).add(
+    newNimNode(nnkIdentDefs).add(
+      n, newEmptyNode(), newCall(newIdentNode(!"newPgJson"), v)
+    )
+  )
 # addr(<n>[0])
 proc newAddr0(n: NimNode): NimNode {.compileTime.} =
   result = newNimNode(nnkCommand).add(
              newIdentNode(!"addr"),
              newNimNode(nnkBracketExpr).add(n, newLit(0))
            )
-
 # this is copy of newLit(int) but makes int32
 proc newLit(i: int32): NimNode {.compileTime.} =
   ## produces a new integer literal node.
@@ -348,7 +408,6 @@ proc newEchoVar(n: NimNode): NimNode {.compileTime.} =
     newIdentNode(!"echo"),
     newNimNode(nnkCall).add(newIdentNode(!"repr"), n)
   )
-
 proc `$`(ntyType: NimTypeKind): string =
   var names = ["int", "int8", "int16", "int32", "int64", "float", "float32",
                "float64", "", "uint", "uint8", "uint16", "uint32", "uint64"]
@@ -404,11 +463,11 @@ proc getOidArray(ntyType: NimTypeKind): int {.compileTime.} =
     elif sizeof(int) == 2:
       result = 1005
     else:
-      error("Unsupported int size!")
+      showError("Unsupported int size!")
   of ntyString, ntyCString:
     result = 1009
   else:
-    error("Unsupported array oid type!")
+    showError("Unsupported array oid type!")
 
 # This procedure converts Nim's type to appropriate
 # PostgreSQL type Oid.
@@ -490,18 +549,27 @@ proc getSequence(ls, ps, op, ntp, np, pv, pl, pt, pf: NimNode) {.compileTime.} =
     pf.add(newLit(1'i32))
     ps.add(newCall(newIdentNode(!"free"), np))
   else:
-    error("Argument's type `seq[" & $impType & "]`is not supported, " & lineinfo(op))
+    showError("Argument's type `seq[" & $impType & "]`is not supported", op)
 
-macro exec*(conn: apgConnection, statement: string,
+macro exec*(conn: apgConnection|apgPool, statement: string,
             params: varargs[typed]): Future[apgResult] =
   # if there no params, we just generate call to execAsync
   if len(params) == 0:
-    result = newTree(nnkStmtListExpr,
-               newCall(bindSym"execAsync", conn, statement, newLit 0,
-                       newNimNode(nnkNilLit), newNimNode(nnkNilLit),
-                       newNimNode(nnkNilLit), newNimNode(nnkNilLit),
-                       newLit(0))
-             )
+    if $getTypeInst(conn).symbol == "apgConnection":
+      result = newTree(nnkStmtListExpr,
+                 newCall(bindSym"execAsync", conn, statement, newLit 0,
+                         newNimNode(nnkNilLit), newNimNode(nnkNilLit),
+                         newNimNode(nnkNilLit), newNimNode(nnkNilLit),
+                         newLit(0))
+               )
+    else:
+      result = newTree(nnkStmtListExpr,
+                 newCall(bindSym"execPoolAsync", conn, statement, newLit 0,
+                         newNimNode(nnkNilLit), newNimNode(nnkNilLit),
+                         newNimNode(nnkNilLit), newNimNode(nnkNilLit),
+                         newLit(0))
+               )
+    echo(toStrLit(result))
   else:
     result = newTree(nnkStmtListExpr)
 
@@ -581,22 +649,66 @@ macro exec*(conn: apgConnection, statement: string,
           var ntp = getType(imp[2])
           getSequence(result, postNodes, param, ntp, np, valuesList,
                       lensList, typesList, formatsList)
-        of ntyObject:
-          echo(getTypeInst(param).symbol)
+        of ntyDistinct:
+          var name = $getTypeInst(param).symbol
+          case name
+          of "JsonB":
+            result.add(newVarJson(np, param[1]))
+            valuesList.add(callRaw(np))
+            lensList.add(castSome(callSize(np), "int32"))
+            typesList.add(castOid(3802))
+            formatsList.add(newLit(1'i32))
+            postNodes.add(newCall(newIdentNode(!"free"), np))
+          of "Json":
+            result.add(newVarStringify(np, param[1]))
+            valuesList.add(castPointer0(np, "pointer"))
+            lensList.add(castSome(callLength(np), "int32"))
+            typesList.add(castOid(114)) # json oid
+            formatsList.add(newLit(1.int32))
+          else:
+            showError("Argument's type is not supported", param)
+        of ntyRef:
+          var name = $getTypeInst(param).symbol
+          if name == "JsonNode":
+            if param.kind == nnkPrefix:
+              var jsonCompiled = genSym(nskLet, "jsonCompiled" & $idx)
+              result.add(newLetStmt(jsonCompiled, param))
+              result.add(newVarStringify(np, jsonCompiled))
+            else:
+              result.add(newVarStringify(np, param))
+            valuesList.add(castPointer0(np, "pointer"))
+            lensList.add(castSome(callLength(np), "int32"))
+            typesList.add(castOid(114)) # json oid
+            formatsList.add(newLit(1.int32))
+          else:
+            showError("Argument's type object of `" & name & "`is not supported",
+                      param)
         else:
-          error("Argument's type `" & $kiType & "`is unsupported, " & lineinfo(param))
+          showError("Argument's type is not supported", param)
       inc(idx)
 
-    result.add(
-      valuesArray, typesArray, lensArray, formatsArray,
-      # newEchoVar(valuesName), newEchoVar(typesName),
-      # newEchoVar(lensName), newEchoVar(formatsName),
-      newVarExec(execFuture,
-        newCall(bindSym"execAsync", conn, statement,
-                newLit len(params), castPointer0(typesName, "POid"),
-                castPointer0(valuesName, "cstringArray"),
-                newAddr0(lensName), newAddr0(formatsName), newLit(0)))
-    )
+    if $getTypeInst(conn).symbol == "apgConnection":
+      result.add(
+        valuesArray, typesArray, lensArray, formatsArray,
+        #newEchoVar(valuesName), newEchoVar(typesName),
+        #newEchoVar(lensName), newEchoVar(formatsName),
+        newVarExec(execFuture,
+          newCall(bindSym"execAsync", conn, statement,
+                  newLit len(params), castPointer0(typesName, "POid"),
+                  castPointer0(valuesName, "cstringArray"),
+                  newAddr0(lensName), newAddr0(formatsName), newLit(0)))
+      )
+    else:
+      result.add(
+        valuesArray, typesArray, lensArray, formatsArray,
+        #newEchoVar(valuesName), newEchoVar(typesName),
+        #newEchoVar(lensName), newEchoVar(formatsName),
+        newVarExec(execFuture,
+          newCall(bindSym"execPoolAsync", conn, statement,
+                  newLit len(params), castPointer0(typesName, "POid"),
+                  castPointer0(valuesName, "cstringArray"),
+                  newAddr0(lensName), newAddr0(formatsName), newLit(0)))
+      )
     for child in postNodes.children:
       result.add(child)
     result.add(execFuture)
