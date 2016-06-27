@@ -231,7 +231,7 @@ proc testTypes(conn: apgConnection) {.async.} =
                          Jsonb(j), Jsonb(%* {"name": "John", "age": 30}))
     var value = getValue(res[0])
     close(res)
-    doAssert(value = "John John")
+    doAssert(value == "John John")
     # expect "John John"
 
 
