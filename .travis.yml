@@ -2,6 +2,8 @@ sudo: false
 language: c
 os:
   - linux
+services:
+  - postgresql
 addons:
 
 before_script:
@@ -14,6 +16,6 @@ before_script:
   - ./koch boot -d:release
   - export PATH=$(pwd)/bin:$PATH
   - cd ..
-
+  - psql -c 'create database travis_ci_test;' -U postgres
 script:
   - nim
