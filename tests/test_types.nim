@@ -2,7 +2,7 @@ import asyncdispatch, asyncpg
 
 proc testTypes(conn: apgConnection) {.async.} =
   block: # empty parameters test
-    var res = await exec(conn, "SELECT 3;")
+    var res = await asyncpg.exec(conn, "SELECT 3;")
     var value = getValue(res[0])
     close(res)
     doAssert(value == "3")
@@ -10,7 +10,7 @@ proc testTypes(conn: apgConnection) {.async.} =
 
   block: # char type test
     var a = 0x30'u8
-    var res = await exec(conn, "SELECT $1 || $2", a, 0x31'u8)
+    var res = await asyncpg.exec(conn, "SELECT $1 || $2", a, 0x31'u8)
     var value = getValue(res[0])
     close(res)
     doAssert(value == "01")
@@ -18,7 +18,7 @@ proc testTypes(conn: apgConnection) {.async.} =
 
   block: # integer type test
     var a = 0x30'i16
-    var res = await exec(conn, "SELECT $1 + $2", a, 0x31'i16)
+    var res = await asyncpg.exec(conn, "SELECT $1 + $2", a, 0x31'i16)
     var value = getValue(res[0])
     close(res)
     doAssert(value == "97")
@@ -26,7 +26,7 @@ proc testTypes(conn: apgConnection) {.async.} =
 
   block: # boolean test
     var a = false
-    var res = await exec(conn, "SELECT $1 OR $2", a, true)
+    var res = await asyncpg.exec(conn, "SELECT $1 OR $2", a, true)
     var value = getValue(res[0])
     close(res)
     doAssert(value == "t")
@@ -34,7 +34,7 @@ proc testTypes(conn: apgConnection) {.async.} =
 
   block: # string test
     var a = "Hello "
-    var res = await exec(conn, "SELECT $1 || $2", a, "World!")
+    var res = await asyncpg.exec(conn, "SELECT $1 || $2", a, "World!")
     var value = getValue(res[0])
     close(res)
     doAssert(value == "Hello World!")
