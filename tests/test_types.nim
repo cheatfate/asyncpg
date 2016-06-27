@@ -8,34 +8,37 @@ proc testTypes(conn: apgConnection) {.async.} =
     doAssert(value == "3")
     # expect: "3"
 
-  # block: # char type test
-  #   var a = 0x30'u8
-  #   var res = await exec(conn, "SELECT $1 || $2", a, 0x31'u8)
-  #   var value = getValue(res[0])
-  #   close(res)
-  #   doAssert(value == "01")
-  #   # expect: "01"
+  block: # char type test
+    var a = 0x30'u8
+    var res = await exec(conn, "SELECT $1 || $2", a, 0x31'u8)
+    var value = getValue(res[0])
+    close(res)
+    doAssert(value == "01")
+    # expect: "01"
 
-  # block: # integer type test
-  #   var a = 0x30'i16
-  #   var res = await exec(conn, "SELECT $1 + $2", a, 0x31'i16)
-  #   echo getValue(res[0])
-  #   close(res)
-  #   # expect: "97"
+  block: # integer type test
+    var a = 0x30'i16
+    var res = await exec(conn, "SELECT $1 + $2", a, 0x31'i16)
+    var value = getValue(res[0])
+    close(res)
+    doAssert(value == "97")
+    # expect: "97"
 
-  # block: # boolean test
-  #   var a = false
-  #   var res = await exec(conn, "SELECT $1 OR $2", a, true)
-  #   echo getValue(res[0])
-  #   close(res)
-  #   # expect: "t"
+  block: # boolean test
+    var a = false
+    var res = await exec(conn, "SELECT $1 OR $2", a, true)
+    var value = getValue(res[0])
+    close(res)
+    doAssert(value == "t")
+    # expect: "t"
 
-  # block: # string test
-  #   var a = "Hello "
-  #   var res = await exec(conn, "SELECT $1 || $2", a, "World!")
-  #   echo getValue(res[0])
-  #   close(res)
-  #   # expect: "Hello World!"
+  block: # string test
+    var a = "Hello "
+    var res = await exec(conn, "SELECT $1 || $2", a, "World!")
+    var value = getValue(res[0])
+    close(res)
+    doAssert(value == "Hello World!")
+    # expect: "Hello World!"
 
   # block: # cstring test
   #   var a = cast[cstring]("Hello C ")
