@@ -569,7 +569,7 @@ macro exec*(conn: apgConnection|apgPool, statement: string,
                          newNimNode(nnkNilLit), newNimNode(nnkNilLit),
                          newLit(0))
                )
-    echo(toStrLit(result))
+    #echo(toStrLit(result))
   else:
     result = newTree(nnkStmtListExpr)
 
