@@ -20,7 +20,9 @@ script:
   - nim c --path:"." tests/test_pool.nim
   - nim c --path:"." tests/test_rows.nim
   - nim c --path:"." tests/test_notifies.nim
+  - nim c --path:"." tests/test_utils.nim
   - tests/test_types
   - tests/test_pool
   - tests/test_rows
   - tests/test_notifies
+  - tests/test_utils

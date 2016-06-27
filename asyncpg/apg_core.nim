@@ -2,12 +2,15 @@ import postgres, asyncdispatch, strutils, macros, json
 import byteswap, apg_array, apg_json
 
 type
+  ## Object which encapsulate connection to PostgreSQL database.
   apgConnection* = ref object of RootRef
     pgconn: PPGconn
 
+  ## Object which encapsulate result of executed SQL query.
   apgResult* = ref object of RootRef
     pgress: seq[PPGresult]
 
+  ## Object which encapsulates pool of connections to PostgreSQL database.
   apgPool* = ref object of RootRef
     connections: seq[apgConnection]
     futures: seq[Future[void]]
@@ -26,6 +29,8 @@ proc pgEncodingToChar(encoding: int32): cstring
      {.cdecl, dynlib: dllName, importc: "pg_encoding_to_char"}
 proc pqlibVersion(): cint
      {.cdecl, dynlib: dllName, importc: "PQlibVersion".}
+proc pqserverVersion(conn: PPGconn): cint
+     {.cdecl, dynlib: dllname, importc: "PQserverVersion".}
 
 proc getFreeConnection(pool: apgPool): Future[int] =
   var retFuture = newFuture[int]("asyncpg.getFreeConnection")
@@ -49,11 +54,13 @@ proc getFreeConnection(pool: apgPool): Future[int] =
       inc(index)
   return retFuture
 
+## Creates new object ``apgPool`` with ``size`` connections inside.
 proc newPool*(size = 10): apgPool =
   result = apgPool()
   result.connections = newSeq[apgConnection](size)
   result.futures = newSeq[Future[void]](size)
 
+## Establish connection to PostgreSQL database using ``connection`` string.
 proc connect*(connection: string): Future[apgConnection] =
   var retFuture = newFuture[apgConnection]("asyncpg.connect")
   var conn = apgConnection()
@@ -87,6 +94,7 @@ proc connect*(connection: string): Future[apgConnection] =
   discard cb(socket)
   return retFuture
 
+## Resets PostgreSQL database connection ``conn``.
 proc reset*(conn: apgConnection): Future[void] =
   var retFuture = newFuture[void]("asyncpg.reset")
 
@@ -121,6 +129,7 @@ proc reset*(conn: apgConnection): Future[void] =
     retFuture.fail(newException(ValueError, "Connection is already closed"))
   return retFuture
 
+## Closes connection to PostgreSQL server
 proc close*(conn: apgConnection) =
   if conn.pgconn != nil:
     let fd = AsyncFD(pqsocket(conn.pgconn))
@@ -130,12 +139,15 @@ proc close*(conn: apgConnection) =
   else:
     raise newException(ValueError, "Connection is already closed")
 
+## Establish pool's connections to PostgreSQL server using ``connection``
+## statement.
 proc connect*(pool: apgPool, connection: string): Future[void] {.async.} =
   var i = 0
   while i < len(pool.connections):
     pool.connections[i] = await connect(connection)
     inc(i)
 
+## Closes pool's connections
 proc close*(pool: apgPool) =
   var i = 0
   while i < len(pool.connections):
@@ -204,14 +216,17 @@ proc execPoolAsync(pool: apgPool, statement: string, pN: int32, pT: POid,
   pool.futures[index].complete()
   return result
 
+## Returns number of query results stored inside ``apgres``.
 proc len*(apgres: apgResult): int =
   result = len(apgres.pgress)
 
+## Closes query results stored inside ``apgres``.
 proc close*(apgres: apgResult) =
   for pgr in apgres.pgress:
     pqclear(pgr)
   apgres.pgress.setLen(0)
 
+## Returns query result from ``apgres`` by ``index``.
 proc `[]`*(apgres: apgResult, index: int): PPGresult =
   result = apgres.pgress[index]
 
@@ -232,16 +247,20 @@ template setRowInline(pgres: PPGresult, r, line, cols) =
     else:
       add(r[col], x)
 
+## Returns single value from result ``pgres``.
 proc getValue*(pgres: PPGresult): string =
   var x = pqgetvalue(pgres, 0, 0)
   result = if isNil(x): "" else: $x
 
+## Returns ``Row`` value from result ``pgres``.
 proc getRow*(pgres: PPGresult): Row =
   var L = pqnfields(pgres)
   result = newSeq[string](L)
   setRow(pgres, result, 0, L)
   pqclear(pgres)
 
+## Returns at least ``row`` number of rows from result ``pgres``. If ``row`` is
+## -1, all rows will be returned.
 proc getRows*(pgres: PPGresult, rows: int): seq[Row] =
   var L = pqnfields(pgres)
   var R = pqntuples(pgres).int
@@ -252,9 +271,11 @@ proc getRows*(pgres: PPGresult, rows: int): seq[Row] =
     result[row] = newSeq[string](L)
     setRow(pgres, result[row], row, L)
 
+## Returns all rows from result ``pgres``.
 template getAllRows*(pgres: PPGresult): seq[Row] =
   getRows(pgres, -1)
 
+## Iterates over ``pgres`` result rows
 iterator rows*(pgres: PPGresult): Row =
   var L = pqnfields(pgres)
   var R = pqntuples(pgres)
@@ -263,9 +284,11 @@ iterator rows*(pgres: PPGresult): Row =
     setRowInline(pgres, result, i, L)
     yield result
 
+## Returns number of affected rows for ``pgres`` result.
 proc getAffectedRows*(pgres: PPGresult): int64 =
   result = parseBiggestInt($pqcmdTuples(pgres))
 
+## Sets the client encoding.
 proc setClientEncoding*(conn: apgConnection,
                         encoding: string): Future[bool] {.async.} =
   result = false
@@ -275,11 +298,21 @@ proc setClientEncoding*(conn: apgConnection,
     result = true
   close(ares)
 
+## Returns the client encoding.
 proc getClientEncoding*(conn: apgConnection): string =
   result = $pgEncodingToChar(pqclientEncoding(conn.pgconn))
 
+## Returns an integer representing the libpq version.
 proc getVersion*(): int =
   result = pqlibVersion().int
+
+## Returns an integer representing the backend version.
+proc getServerVersion*(conn: apgConnection): int =
+  result = pqserverVersion(conn.pgconn).int
+
+## Interrogates the frontend/backend protocol being used.
+proc getProtocolVersion*(conn: apgConnection): int =
+  result = pqprotocolVersion(conn.pgconn).int
 
 #
 # exec macro
@@ -404,11 +437,11 @@ proc newLit(i: int32): NimNode {.compileTime.} =
   result = newNimNode(nnkInt32Lit)
   result.intVal = i
 # echo(repr(<n>))
-proc newEchoVar(n: NimNode): NimNode {.compileTime.} =
-  result = newNimNode(nnkCall).add(
-    newIdentNode(!"echo"),
-    newNimNode(nnkCall).add(newIdentNode(!"repr"), n)
-  )
+# proc newEchoVar(n: NimNode): NimNode {.compileTime.} =
+#   result = newNimNode(nnkCall).add(
+#     newIdentNode(!"echo"),
+#     newNimNode(nnkCall).add(newIdentNode(!"repr"), n)
+#   )
 proc `$`(ntyType: NimTypeKind): string =
   var names = ["int", "int8", "int16", "int32", "int64", "float", "float32",
                "float64", "", "uint", "uint8", "uint16", "uint32", "uint64"]
@@ -440,7 +473,7 @@ proc `$`(ntyType: NimTypeKind): string =
 # depends on platform's size of int
 # array/seq[string] => ARRAY[text] (1009)
 # array/seq[cstring] => ARRAY[text] (1009)
-proc getOidArray(ntyType: NimTypeKind): int {.compileTime.} = 
+proc getOidArray(ntyType: NimTypeKind): int {.compileTime.} =
   case ntyType
   of ntyBool:
     result = 1000
@@ -552,6 +585,9 @@ proc getSequence(ls, ps, op, ntp, np, pv, pl, pt, pf: NimNode) {.compileTime.} =
   else:
     showError("Argument's type `seq[" & $impType & "]`is not supported", op)
 
+## Submits a command ``statement`` to the server connection
+## or connection's pool. ``params`` is SQL parameters which will
+## be passed with command.
 macro exec*(conn: apgConnection|apgPool, statement: string,
             params: varargs[typed]): Future[apgResult] =
   # if there no params, we just generate call to execAsync
