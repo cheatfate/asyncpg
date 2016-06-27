@@ -40,37 +40,41 @@ proc testTypes(conn: apgConnection) {.async.} =
     doAssert(value == "Hello World!")
     # expect: "Hello World!"
 
-  # block: # cstring test
-  #   var a = cast[cstring]("Hello C ")
-  #   var res = await exec(conn, "SELECT $1 || $2", a, "World!")
-  #   echo getValue(res[0])
-  #   close(res)
-  #   # expect: "Hello C World!"
+  block: # cstring test
+    var a = cast[cstring]("Hello C ")
+    var res = await exec(conn, "SELECT $1 || $2", a, "World!")
+    var value = getValue(res[0])
+    close(res)
+    doAssert(value == "Hello C World!")
+    # expect: "Hello C World!"
 
-  # block: # seq[bool] test
-  #   var a = @[false, false]
-  #   var res = await exec(conn, "SELECT $1 || $2", a, @[true, true])
-  #   echo getValue(res[0])
-  #   close(res)
-  #   # expect: "{f,f,t,t}"
+  block: # seq[bool] test
+    var a = @[false, false]
+    var res = await exec(conn, "SELECT $1 || $2", a, @[true, true])
+    var value = getValue(res[0])
+    close(res)
+    doAssert(value == "{f,f,t,t}")
+    # expect: "{f,f,t,t}"
 
-  # block: # array[bool] test
-  #   var a = [false, false]
-  #   var res = await exec(conn, "SELECT $1 || $2", a, [true, true])
-  #   echo getValue(res[0])
-  #   close(res)
-  #   # expect: "{f,f,t,t}"
+  block: # array[bool] test
+    var a = [false, false]
+    var res = await exec(conn, "SELECT $1 || $2", a, [true, true])
+    var value = getValue(res[0])
+    close(res)
+    doAssert(value == "{f,f,t,t}")
+    # expect: "{f,f,t,t}"
 
-  # block: # seq[char, int8, uint8] test
-  #   var a = @['0', '1']
-  #   var b = @[0x32'i8, 0x33'i8]
-  #   var c = @[0x34'u8, 0x35'u8]
-  #   var res = await exec(conn, "SELECT $1 || $2 || $3 || $4 || $5 || $6",
-  #                        a, b, c, @['6', '7'], @[0x38'i8, 0x39'i8],
-  #                        @[0x30'u8, 0x30'u8])
-  #   echo getValue(res[0])
-  #   close(res)
-  #   # expect: "\x303132333435363738393030"
+  block: # seq[char, int8, uint8] test
+    var a = @['0', '1']
+    var b = @[0x32'i8, 0x33'i8]
+    var c = @[0x34'u8, 0x35'u8]
+    var res = await exec(conn, "SELECT $1 || $2 || $3 || $4 || $5 || $6",
+                         a, b, c, @['6', '7'], @[0x38'i8, 0x39'i8],
+                         @[0x30'u8, 0x30'u8])
+    var value = getValue(res[0])
+    close(res)
+    doAssert(value == "\\x303132333435363738393030")
+    # expect: "\x303132333435363738393030"
 
   # block: # array[char, int8, uint8] test
   #   var a = ['0', '1']
