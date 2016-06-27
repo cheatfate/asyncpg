@@ -16,4 +16,5 @@ before_script:
   - cd ..
   - psql -c 'create database travis_ci_test;' -U postgres
 script:
-  - ls -la
+  - nim c asyncpg/tests/test_types.nim
+  - asyncpg/tests/test_types
