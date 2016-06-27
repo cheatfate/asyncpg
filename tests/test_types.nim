@@ -127,7 +127,7 @@ proc testTypes(conn: apgConnection) {.async.} =
     var res = await exec(conn, "SELECT $1 || $2 || $3 || $4",
                          a, b, [100000'i32, -100000'i32],
                          [0xFFFFFFFE'u32, 0xFFFFFFFE'u32])
-    var value = echo getValue(res[0])
+    var value = getValue(res[0])
     close(res)
     doAssert(value == "{100000,-100000,-2,-2,100000,-100000,-2,-2}")
     # expect: "{100000,-100000,-2,-2,100000,-100000,-2,-2}"
