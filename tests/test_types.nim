@@ -213,7 +213,7 @@ proc testTypes(conn: apgConnection) {.async.} =
                          a, ["May", "June", "July", "August"])
     var value = getValue(res[0])
     close(res)
-    doAssert(value == "{January,February,March,April,May,June,July,August")
+    doAssert(value == "{January,February,March,April,May,June,July,August}")
     # expect "{January,February,March,April,May,June,July,August}"
 
 var connStr = "host=localhost port=5432 dbname=travis_ci_test user=postgres"
