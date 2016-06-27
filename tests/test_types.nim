@@ -1,4 +1,4 @@
-import asyncdispatch, asyncpg
+import asyncdispatch, asyncpg, json
 
 proc testTypes(conn: apgConnection) {.async.} =
   block: # empty parameters test
@@ -215,6 +215,25 @@ proc testTypes(conn: apgConnection) {.async.} =
     close(res)
     doAssert(value == "{January,February,March,April,May,June,July,August}")
     # expect "{January,February,March,April,May,June,July,August}"
+
+  block: # json test
+    var j = %* {"name": "John", "age": 30}
+    var res = await exec(conn, "SELECT ($1->>'name') || ' ' || ($2->>'name')",
+                         j, %* {"name": "John", "age": 30})
+    var value = getValue(res[0])
+    close(res)
+    doAssert(value == "John John")
+    # expect "John John"
+
+  block: # jsonb test
+    var j = %* {"name": "John", "age": 30}
+    var res = await exec(conn, "SELECT ($1->>'name') || ' ' || ($2->>'name')",
+                         Jsonb(j), Jsonb(%* {"name": "John", "age": 30}))
+    var value = getValue(res[0])
+    close(res)
+    doAssert(value = "John John")
+    # expect "John John"
+
 
 var connStr = "host=localhost port=5432 dbname=travis_ci_test user=postgres"
 var conn = waitFor connect(connStr)
