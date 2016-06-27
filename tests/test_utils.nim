@@ -3,8 +3,10 @@ import asyncdispatch, asyncpg
 proc testEncoding(conn: apgConnection): Future[bool] {.async.} =
   result = false
   var r = await setClientEncoding(conn, "WIN-1252")
+  echo(r)
   if r:
     var s = getClientEncoding(conn)
+    echo(s)
     if s == "WIN-1252":
       result = true
 
