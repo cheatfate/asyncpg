@@ -2,13 +2,11 @@ sudo: false
 language: c
 os:
   - linux
-services:
-  - postgresql
 addons:
-
+  postgresql: "9.4"
 before_script:
-  - git clone https://github.com/nim-lang/Nim.git
-  - cd Nim
+  - git clone https://github.com/nim-lang/Nim.git cheatfate/Nim
+  - cd cheatfate/Nim
   - git clone --depth 1 https://github.com/nim-lang/csources
   - cd csources && sh build.sh
   - cd ..
