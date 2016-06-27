@@ -5,8 +5,8 @@ os:
 addons:
   postgresql: "9.4"
 before_script:
-  - git clone https://github.com/nim-lang/Nim.git /cheatfate/Nim
-  - cd /cheatfate/Nim
+  - git clone https://github.com/nim-lang/Nim.git
+  - cd Nim
   - git clone --depth 1 https://github.com/nim-lang/csources
   - cd csources && sh build.sh
   - cd ..
@@ -16,5 +16,4 @@ before_script:
   - cd ..
   - psql -c 'create database travis_ci_test;' -U postgres
 script:
-  - cd asyncpg
-  - nim c asyncpg
+  - ls -la
