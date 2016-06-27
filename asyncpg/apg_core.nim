@@ -136,10 +136,11 @@ proc connect*(pool: apgPool, connection: string): Future[void] {.async.} =
     pool.connections[i] = await connect(connection)
     inc(i)
 
-proc close*(pool: apgPool): Future[void] {.async.} =
+proc close*(pool: apgPool) =
   var i = 0
   while i < len(pool.connections):
     close(pool.connections[i])
+    inc(i)
 
 proc execAsync(conn: apgConnection, statement: string, pN: int32, pT: POid,
            pV: cstringArray, pL, pF: ptr int32, rF: int32): Future[apgResult] =
