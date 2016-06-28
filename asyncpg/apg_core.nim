@@ -1,10 +1,21 @@
-import postgres, asyncdispatch, strutils, macros, json
+import postgres, asyncdispatch, strutils, macros, json, lists
 import byteswap, apg_array, apg_json
 
 type
+  ## Object which represents PostgreSQL's asynchrounous notify
+  apgNotify* = object
+    channel*: string
+    payload*: string
+    bepid: int
+
+  apgNotifyCell = object
+    notify: apgNotify
+    future: Future[apgNotify]
+
   ## Object which encapsulate connection to PostgreSQL database.
   apgConnection* = ref object of RootRef
     pgconn: PPGconn
+    notifies: DoublyLinkedList[apgNotifyCell]
 
   ## Object which encapsulate result of executed SQL query.
   apgResult* = ref object of RootRef
@@ -14,6 +25,7 @@ type
   apgPool* = ref object of RootRef
     connections: seq[apgConnection]
     futures: seq[Future[void]]
+    notifies: DoublyLinkedList[apgNotifyCell]
 
   Row* = seq[string]  ## a row of a dataset. NULL database values will be
                       ## converted to nil.
@@ -40,8 +52,8 @@ proc getFreeConnection(pool: apgPool): Future[int] =
       while index < len(pool.futures):
         let fut = pool.futures[index]
         if fut == nil or fut.finished:
-          var repFuture = newFuture[void]("asyncpg.pool." & $index)
-          pool.futures[index] = repFuture
+          var replaceFuture = newFuture[void]("asyncpg.pool." & $index)
+          pool.futures[index] = replaceFuture
           retFuture.complete(index)
           break
         inc(index)
@@ -52,6 +64,20 @@ proc getFreeConnection(pool: apgPool): Future[int] =
     while index < len(pool.futures):
       pool.futures[index].callback = cb
       inc(index)
+  return retFuture
+
+proc getIndexConnection(pool: apgPool, index: int): Future[int] =
+  var retFuture = newFuture[int]("asyncpg.getIndexConnection")
+  proc cb() =
+    if not retFuture.finished:
+      let fut = pool.futures[index]
+      if fut == nil or fut.finished:
+        var replaceFuture = newFuture[void]("asyncpg.pool." & $index)
+        pool.futures[index] = replaceFuture
+        retFuture.complete(index)
+  cb()
+  if not retFuture.finished:
+    pool.futures[index].callback = cb
   return retFuture
 
 ## Creates new object ``apgPool`` with ``size`` connections inside.
@@ -80,6 +106,8 @@ proc connect*(connection: string): Future[apgConnection] =
           retFuture.fail(newException(ValueError, $pqerrorMessage(conn.pgconn)))
         # set maximum verbosity level for errors
         discard pqsetErrorVerbosity(conn.pgconn, PQERRORS_VERBOSE)
+        # allocate sequence for notify objects
+        conn.notifies = initDoublyLinkedList[apgNotifyCell]()
         retFuture.complete(conn)
       else:
         retFuture.fail(newException(ValueError,
@@ -155,7 +183,8 @@ proc close*(pool: apgPool) =
     inc(i)
 
 proc execAsync(conn: apgConnection, statement: string, pN: int32, pT: POid,
-           pV: cstringArray, pL, pF: ptr int32, rF: int32): Future[apgResult] =
+               pV: cstringArray, pL, pF: ptr int32,
+               rF: int32, notify = true): Future[apgResult] =
   var retFuture = newFuture[apgResult]("asyncpg.exec")
   var apgres = apgResult()
   apgres.pgress = newSeq[PPGresult]()
@@ -181,10 +210,27 @@ proc execAsync(conn: apgConnection, statement: string, pN: int32, pT: POid,
           # processing pending notifications
           while true:
             var nres = pqnotifies(conn.pgconn)
-            if nres == nil:
-              break
+            if nres != nil:
+              var channel = $(nres.relname)
+              if notify:
+                for node in conn.notifies.nodes():
+                  if node.value.future != nil:
+                    if node.value.notify.channel == channel:
+                      node.value.notify.payload = $(nres.extra)
+                      node.value.notify.bepid = nres.be_pid
+                      node.value.future.complete(node.value.notify)
+                      conn.notifies.remove(node)
+                      break
+              else:
+                var cell = apgNotifyCell()
+                cell.notify = apgNotify()
+                cell.notify.channel = channel
+                cell.notify.payload = $(nres.extra)
+                cell.notify.bepid = nres.be_pid
+                conn.notifies.append(cell)
+              pqfreemem(cast[pointer](nres))
             else:
-              discard
+              break
           # processing results
           while true:
             if pqisBusy(conn.pgconn) == 0:
@@ -212,7 +258,16 @@ proc execPoolAsync(pool: apgPool, statement: string, pN: int32, pT: POid,
   result = nil
   var index = await getFreeConnection(pool)
   result = await execAsync(pool.connections[index], statement, pN, pT,
-                           pV, pL, pF, rF)
+                           pV, pL, pF, rF, false)
+  # processing connection notifies
+  for cnode in pool.connections[index].notifies.nodes():
+    for pnode in pool.notifies.nodes():
+      if pnode.value.future != nil:
+        if pnode.value.notify.channel == cnode.value.notify.channel:
+          pnode.value.future.complete(cnode.value.notify)
+      pool.notifies.remove(pnode)
+    pool.connections[index].notifies.remove(cnode)
+
   pool.futures[index].complete()
   return result
 
@@ -750,3 +805,92 @@ macro exec*(conn: apgConnection|apgPool, statement: string,
       result.add(child)
     result.add(execFuture)
     #echo(toStrLit(result))
+
+template checkResultCommand(res) =
+  var sres = pqresultStatus(res.pgress[0])
+  close(res)
+  if sres != PGRES_COMMAND_OK:
+    raise newException(ValueError, $pqerrorMessage(res.pgress[0].conn))
+
+template checkResultTuple(res) =
+  var sres = pqresultStatus(res.pgress[0])
+  close(res)
+  if sres != PGRES_TUPLES_OK:
+    raise newException(ValueError, $pqerrorMessage(res.pgress[0].conn))
+
+## Registers listening for asynchronous notifies on connection ``conn`` and 
+## channel ``channel``.
+proc listenNotify*(conn: apgConnection,
+                   channel: string): Future[void] {.async.} =
+  var query = "LISTEN \"" & channel & "\";"
+  var res = await exec(conn, query)
+  checkResultCommand(res)
+
+## Registers listening for asynchronous notifies on pool ``pool`` and 
+## channel ``channel``.
+proc listenNotify*(pool: apgPool,
+                   channel: string): Future[void] {.async.} =
+  var query = "LISTEN \"" & channel & "\";"
+  var i = 0
+  while i < len(pool.connections):
+    var index = await pool.getIndexConnection(i)
+    var res = await exec(pool.connections[i], query)
+    pool.futures[i].complete()
+    checkResultCommand(res)
+    inc(i)
+
+## Unregisters listening for asynchronous notifies on connection ``conn`` and
+## channel ``channel``.
+proc unlistenNotify*(conn: apgConnection,
+                     channel: string): Future[void] {.async.} =
+  var query = "UNLISTEN \"" & channel & "\";"
+  var res = await exec(conn, query)
+  checkResultCommand(res)
+
+## Unregisters listening for asynchronous notifies on pool ``pool`` and 
+## channel ``channel``.
+proc unlistenNotify*(pool: apgPool,
+                     channel: string): Future[void] {.async.} =
+  var query = "UNLISTEN \"" & channel & "\";"
+  var i = 0
+  while i < len(pool.connections):
+    var index = await pool.getIndexConnection(i)
+    var res = await exec(pool.connections[i], query)
+    pool.futures[i].complete()
+    checkResultCommand(res)
+    inc(i)
+
+## Send asynchronous notify to channel ``channel`` with data in ``payload``.
+## Be sure size of ``payload`` must be less, than 8000 bytes.
+proc sendNotify*(conn: apgConnection, channel: string,
+                 payload: string): Future[void] {.async.} =
+  # https://www.postgresql.org/docs/9.0/static/sql-notify.html
+  doAssert(len(payload) < 8000)
+
+  var p1 = channel
+  var p2 = payload
+  var query = "SELECT pg_notify($1, $2);"
+  var res = await exec(conn, query, p1, p2)
+  checkResultTuple(res)
+
+## Send asynchronous notify to channel ``channel`` with data in ``payload``.
+## Be sure size of ``payload`` must be less, than 8000 bytes.
+proc sendNotify*(pool: apgPool, channel: string,
+                 payload: string): Future[void] {.async.} =
+  # https://www.postgresql.org/docs/9.0/static/sql-notify.html
+  doAssert(len(payload) < 8000)
+
+  var p1 = channel
+  var p2 = payload
+  var query = "SELECT pg_notify($1, $2);"
+  var res = await exec(pool, query, p1, p2)
+  checkResultTuple(res)
+
+## Returns future, which will receive `apgNotify`, when asynchronous notify
+## on channel ``channel`` arrives.
+proc notify*(conn: apgConnection|apgPool, channel: string): Future[apgNotify] =
+  var cell = apgNotifyCell()
+  cell.notify.channel = channel
+  cell.future = newFuture[apgNotify]("asyncpg.notify")
+  conn.notifies.append(cell)
+  return cell.future
