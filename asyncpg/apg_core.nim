@@ -806,6 +806,10 @@ macro exec*(conn: apgConnection|apgPool, statement: string,
     result.add(execFuture)
     #echo(toStrLit(result))
 
+#
+# Asynchronous notify
+#
+
 template checkResultCommand(res) =
   var sres = pqresultStatus(res.pgress[0])
   close(res)
