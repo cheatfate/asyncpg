@@ -831,13 +831,8 @@ proc listenNotify*(conn: apgConnection,
 proc listenNotify*(pool: apgPool,
                    channel: string): Future[void] {.async.} =
   var query = "LISTEN \"" & channel & "\";"
-  var i = 0
-  while i < len(pool.connections):
-    var index = await pool.getIndexConnection(i)
-    var res = await exec(pool.connections[i], query)
-    pool.futures[i].complete()
-    checkResultCommand(res)
-    inc(i)
+  var res = await exec(pool, query)
+  checkResultCommand(res)
 
 ## Unregisters listening for asynchronous notifies on connection ``conn`` and
 ## channel ``channel``.
@@ -851,14 +846,9 @@ proc unlistenNotify*(conn: apgConnection,
 ## channel ``channel``.
 proc unlistenNotify*(pool: apgPool,
                      channel: string): Future[void] {.async.} =
-  var query = "UNLISTEN \"" & channel & "\";"
-  var i = 0
-  while i < len(pool.connections):
-    var index = await pool.getIndexConnection(i)
-    var res = await exec(pool.connections[i], query)
-    pool.futures[i].complete()
-    checkResultCommand(res)
-    inc(i)
+  var query = "LISTEN \"" & channel & "\";"
+  var res = await exec(pool, query)
+  checkResultCommand(res)
 
 ## Send asynchronous notify to channel ``channel`` with data in ``payload``.
 ## Be sure size of ``payload`` must be less, than 8000 bytes.
