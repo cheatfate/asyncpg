@@ -846,7 +846,7 @@ proc unlistenNotify*(conn: apgConnection,
 ## channel ``channel``.
 proc unlistenNotify*(pool: apgPool,
                      channel: string): Future[void] {.async.} =
-  var query = "LISTEN \"" & channel & "\";"
+  var query = "UNLISTEN \"" & channel & "\";"
   var res = await exec(pool, query)
   checkResultCommand(res)
 
