@@ -1,3 +1,14 @@
+#
+#
+#                    AsyncPG
+#        (c) Copyright 2016 Eugene Kabanov
+#
+#    See the file "LICENSE", included in this
+#    distribution, for details about the copyright.
+#
+
+## This is core module
+
 import postgres, asyncdispatch, strutils, macros, json, lists
 import byteswap, apg_array, apg_json
 
@@ -297,7 +308,6 @@ proc execPoolAsync(pool: apgPool, statement: string, pN: int32, pT: POid,
   pool.futures[index].complete()
   return result
 
-
 proc len*(apgres: apgResult): int =
   ## Returns number of query results stored inside ``apgres``.
 
@@ -309,7 +319,6 @@ proc close*(apgres: apgResult) =
   for pgr in apgres.pgress:
     pqclear(pgr)
   apgres.pgress.setLen(0)
-
 
 proc `[]`*(apgres: apgResult, index: int): PPGresult =
   ## Returns query result from ``apgres`` by ``index``.
@@ -367,7 +376,6 @@ template getAllRows*(pgres: PPGresult): seq[Row] =
 
   getRows(pgres, -1)
 
-
 iterator rows*(pgres: PPGresult): Row =
   ## Iterates over ``pgres`` result rows
 
@@ -378,12 +386,10 @@ iterator rows*(pgres: PPGresult): Row =
     setRowInline(pgres, result, i, L)
     yield result
 
-
 proc getAffectedRows*(pgres: PPGresult): int64 =
   ## Returns number of affected rows for ``pgres`` result.
 
   result = parseBiggestInt($pqcmdTuples(pgres))
-
 
 proc setClientEncoding*(conn: apgConnection,
                         encoding: string): Future[bool] {.async.} =
@@ -396,24 +402,20 @@ proc setClientEncoding*(conn: apgConnection,
     result = true
   close(ares)
 
-
 proc getClientEncoding*(conn: apgConnection): string =
   ## Returns the client encoding.
 
   result = $pgEncodingToChar(pqclientEncoding(conn.pgconn))
-
 
 proc getVersion*(): int =
   ## Returns an integer representing the libpq version.
 
   result = pqlibVersion().int
 
-
 proc getServerVersion*(conn: apgConnection): int =
   ## Returns an integer representing the backend version.
 
   result = pqserverVersion(conn.pgconn).int
-
 
 proc getProtocolVersion*(conn: apgConnection): int =
   ## Interrogates the frontend/backend protocol being used.
@@ -968,7 +970,7 @@ proc escapeString*(conn: apgConnection, str: string): string =
     pqfreemem(cast[pointer](r))
 
 proc escapeBytea*(conn: apgConnection, buf: pointer, size: int): string =
-  ## Converts binary data from pointer `buf` and length `size` to 
+  ## Converts binary data from pointer `buf` and length `size` to
   ## PostgreSQL's BYTEA string representation.
   var s = 0
   var r = pqescapeByteaConn(conn.pgconn, cast[cstring](buf), size, addr s)
@@ -979,7 +981,7 @@ proc escapeBytea*(conn: apgConnection, buf: pointer, size: int): string =
     pqfreemem(cast[pointer](r))
 
 proc unescapeBytea*(str: string): seq[char] =
-  ## Converts PostgreSQL's BYTEA string representation to seq[char]
+  ## Converts PostgreSQL's BYTEA string representation to seq[char].
   var n = 0
   var r = pqunescapeBytea(cstring(str), n)
   doAssert(r != nil)

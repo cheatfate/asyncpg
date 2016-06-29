@@ -3,7 +3,7 @@
 #                    AsyncPG
 #        (c) Copyright 2016 Eugene Kabanov
 #
-#    See the file "copying.txt", included in this
+#    See the file "LICENSE", included in this
 #    distribution, for details about the copyright.
 #
 
