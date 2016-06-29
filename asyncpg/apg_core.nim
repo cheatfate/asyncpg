@@ -2,7 +2,7 @@ import postgres, asyncdispatch, strutils, macros, json, lists
 import byteswap, apg_array, apg_json
 
 type
-  ## Object which represents PostgreSQL's asynchrounous notify
+  ## Object which represents PostgreSQL's asynchronous notify
   apgNotify* = object
     channel*: string
     payload*: string
@@ -182,6 +182,13 @@ proc close*(pool: apgPool) =
     close(pool.connections[i])
     inc(i)
 
+template checkResult(res: PPGresult): bool =
+  var chres = true
+  var pqres = pqresultStatus(res)
+  if pqres == PGRES_BAD_RESPONSE or pqres == PGRES_FATAL_ERROR:
+    chres = false
+  chres
+
 proc execAsync(conn: apgConnection, statement: string, pN: int32, pT: POid,
                pV: cstringArray, pL, pF: ptr int32,
                rF: int32, notify = true): Future[apgResult] =
@@ -236,7 +243,11 @@ proc execAsync(conn: apgConnection, statement: string, pN: int32, pT: POid,
             if pqisBusy(conn.pgconn) == 0:
               var res = pqgetResult(conn.pgconn)
               if res != nil:
-                apgres.pgress.add(res)
+                if checkResult(res):
+                  apgres.pgress.add(res)
+                else:
+                  retFuture.fail(newException(ValueError,
+                                              $pqerrorMessage(conn.pgconn)))
               else:
                 retFuture.complete(apgres)
                 return true
@@ -244,9 +255,14 @@ proc execAsync(conn: apgConnection, statement: string, pN: int32, pT: POid,
               return false
 
   var query: cstring = statement
-  if pqsendQueryParams(conn.pgconn, query, pN, pT, pV, pL, pF, rF) == 0:
+  var qres: int32 = 0
+  if pN == 0:
+    qres = pqsendQuery(conn.pgconn, query)
+  else:
+    qres = pqsendQueryParams(conn.pgconn, query, pN, pT, pV, pL, pF, rF)
+
+  if qres == 0:
     retFuture.fail(newException(ValueError, $pqerrorMessage(conn.pgconn)))
-    return retFuture
   else:
     let fd = AsyncFD(pqsocket(conn.pgconn))
     discard cb(fd)
@@ -661,7 +677,6 @@ macro exec*(conn: apgConnection|apgPool, statement: string,
                          newNimNode(nnkNilLit), newNimNode(nnkNilLit),
                          newLit(0))
                )
-    #echo(toStrLit(result))
   else:
     result = newTree(nnkStmtListExpr)
 
