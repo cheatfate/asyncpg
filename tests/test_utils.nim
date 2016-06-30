@@ -1,12 +1,11 @@
-import asyncdispatch, asyncpg
+import asyncdispatch, asyncpg, strutils
 
 proc testEncoding(conn: apgConnection): Future[bool] {.async.} =
   result = false
-  var r = await setClientEncoding(conn, "WIN1252")
-  if r:
-    var s = getClientEncoding(conn)
-    if s == "WIN1252":
-      result = true
+  await setClientEncoding(conn, "WIN1252")
+  var s = getClientEncoding(conn)
+  if s == "WIN1252":
+    result = true
 
 proc testVersions(conn: apgConnection): bool =
   result = false
@@ -36,6 +35,43 @@ proc testEscape(conn: apgConnection): bool =
     inc(i)
   result = r1 and r2 and r3
 
+proc testCopy(conn: apgConnection): Future[bool] {.async.} =
+  result = false
+  var inString = newString(80)
+  var outString = "8\l8\l8\l8\l8\l8\l8\l8\l8\l8\l"
+
+  var dr = await exec(conn, "DROP TABLE IF EXISTS foo;")
+  close(dr)
+
+  var ar = await exec(conn, "CREATE TABLE foo(a int8);")
+  close(ar)
+
+  var sr1 = await exec(conn, "COPY foo FROM stdin;")
+  close(sr1)
+
+  var cr1 = await copyTo(conn, cast[pointer](addr outString[0]),
+                         len(outString).int32)
+  close(cr1)
+  var cr2 = await copyTo(conn, nil, 0.int32)
+  var rowsAffected = getAffectedRows(cr2[0])
+  close(cr2)
+
+  if rowsAffected == 10:
+    var sr2 = await exec(conn, "COPY foo TO STDOUT;")
+    close(sr2)
+    var idx = 0
+    while true:
+      var cr3 = await copyFromInto(conn, cast[pointer](addr inString[idx]),
+                                   len(inString))
+      if cr3 == 0:
+        inString.setLen(idx)
+        break
+      else:
+        idx += cr3
+  var br = await exec(conn, "DROP TABLE foo;")
+  close(br)
+  result = (inString == outString)
+
 var connStr = "host=localhost port=5432 dbname=travis_ci_test user=postgres"
 var conn = waitFor connect(connStr)
 
@@ -49,6 +85,10 @@ block: # protocol/server/api versions test
 
 block: # escaping test
   var res = testEscape(conn)
+  doAssert(res)
+
+block: # copy test
+  var res = waitFor(testCopy(conn))
   doAssert(res)
 
 close(conn)

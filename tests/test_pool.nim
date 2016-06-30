@@ -27,9 +27,25 @@ proc testPool(pool: apgPool): Future[bool] {.async.} =
   if k == POOL_SIZE:
     result = true
 
+proc testWithConnection(pool: apgPool): Future[bool] {.async.} =
+  result = true
+
+  withConnection(pool, conn1) do:
+    await setClientEncoding(conn1, "WIN1252")
+  withConnection(pool, conn2) do:
+    var b = getClientEncoding(conn2)
+    if b != "WIN1252":
+      result = false
+
 var pool = newPool(POOL_SIZE)
 var connStr = "host=localhost port=5432 dbname=travis_ci_test user=postgres"
 waitFor pool.connect(connStr)
-var res = waitFor testPool(pool)
-doAssert(res)
+block:
+  var res = waitFor testPool(pool)
+  doAssert(res)
+
+block:
+  var res = waitFor testWithConnection(pool)
+  doAssert(res)
+
 close(pool)
