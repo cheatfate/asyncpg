@@ -31,4 +31,4 @@ $ nimble install https://github.com/cheatfate/asyncpg.git
 
 ## Documentation
 
-You can find documentation in [[Wiki]].
+You can find documentation in [Wiki](https://github.com/cheatfate/asyncpg/wiki).
