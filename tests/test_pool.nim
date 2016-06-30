@@ -30,10 +30,10 @@ proc testPool(pool: apgPool): Future[bool] {.async.} =
 proc testWithConnection(pool: apgPool): Future[bool] {.async.} =
   result = true
 
-  withConnection(pool, conn1) do:
-    await setClientEncoding(conn1, "WIN1252")
-  withConnection(pool, conn2) do:
-    var b = getClientEncoding(conn2)
+  withConnection(pool, conn) do:
+    await setClientEncoding(conn, "WIN1252")
+  withConnection(pool, conn) do:
+    var b = getClientEncoding(conn)
     if b != "WIN1252":
       result = false
 

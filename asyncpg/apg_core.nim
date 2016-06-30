@@ -393,8 +393,9 @@ template withConnection*(pool: apgPool, conn, body: untyped) =
   var connFuture = getFreeConnection(pool)
   yield connFuture
   var index = connFuture.read
-  var conn = pool.connections[index]
-  body
+  block:
+    var conn = pool.connections[index]
+    body
   pool.futures[index].complete()
 
 proc execAsync(conn: apgConnection, statement: string, pN: int32, pT: POid,
