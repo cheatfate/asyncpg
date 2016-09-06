@@ -1157,3 +1157,4 @@ proc unescapeBytea*(str: string): seq[char] =
   result = newSeq[char](n)
   copyMem(addr result[0], r, n)
   pqfreemem(cast[pointer](r))
+
