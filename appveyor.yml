@@ -27,26 +27,25 @@ environment:
 install:
   - SET PGUSER=postgres
   - SET PGPASSWORD=Password12!
-  - IF not exist "%MINGW_ARCHIVE%" appveyor DownloadFile "%MINGW_URL%" -FileName "%MINGW_ARCHIVE%"
-  - 7z x -y "%MINGW_ARCHIVE%" > nul
-  - SET PATH=%CD%\%MINGW_DIR%\bin;%CD%\Nim\bin;C:\Program Files\PostgreSQL\9.4\bin\;%PATH%
-  - git clone https://github.com/nim-lang/Nim.git %CD%\Nim
-  - IF "%PLATFORM%" == "x64" ( copy C:\OpenSSL-Win64\libeay32.dll %CD%\Nim\bin\libeay64.dll & copy C:\OpenSSL-Win64\libeay32.dll %CD%\Nim\bin\libeay32.dll & copy C:\OpenSSL-Win64\libssl32.dll %CD%\Nim\bin\libssl64.dll & copy C:\OpenSSL-Win64\libssl32.dll %CD%\Nim\bin\libssl32.dll )
-    ELSE ( copy C:\OpenSSL-Win32\libeay32.dll %CD%\Nim\bin\libeay32.dll & copy C:\OpenSSL-Win32\libssl32.dll %CD%\Nim\bin\libssl32.dll )
-  - cd %CD%\Nim
-  - git clone --depth 1 https://github.com/nim-lang/csources
-  - cd csources
-  - IF "%PLATFORM%" == "x64" ( build64.bat ) else ( build.bat )
-  - cd ..
-  - bin\nim c koch
-  - koch boot -d:release
-  - nim e install_nimble.nims
-  - nimble update
-  - cd ..
-  - psql -c 'create database appveyor_ci_test;' -U postgres
+#  - IF not exist "%MINGW_ARCHIVE%" appveyor DownloadFile "%MINGW_URL%" -FileName "%MINGW_ARCHIVE%"
+#  - 7z x -y "%MINGW_ARCHIVE%" > nul
+#  - SET PATH=%CD%\%MINGW_DIR%\bin;%CD%\Nim\bin;C:\Program Files\PostgreSQL\9.4\bin\;%PATH%
+#  - git clone https://github.com/nim-lang/Nim.git %CD%\Nim
+#  - IF "%PLATFORM%" == "x64" ( copy C:\OpenSSL-Win64\libeay32.dll %CD%\Nim\bin\libeay64.dll & copy C:\OpenSSL-Win64\libeay32.dll %CD%\Nim\bin\libeay32.dll & copy C:\OpenSSL-Win64\libssl32.dll %CD%\Nim\bin\libssl64.dll & copy C:\OpenSSL-Win64\libssl32.dll %CD%\Nim\bin\libssl32.dll )
+#    ELSE ( copy C:\OpenSSL-Win32\libeay32.dll %CD%\Nim\bin\libeay32.dll & copy C:\OpenSSL-Win32\libssl32.dll %CD%\Nim\bin\libssl32.dll )
+#  - cd %CD%\Nim
+#  - git clone --depth 1 https://github.com/nim-lang/csources
+#  - cd csources
+#  - IF "%PLATFORM%" == "x64" ( build64.bat ) else ( build.bat )
+#  - cd ..
+#  - bin\nim c koch
+#  - koch boot -d:release
+#  - nim e install_nimble.nims
+#  - nimble update
+#  - cd ..
 
 build_script:
-  - echo "BUILDING"
+  - psql createdb appveyor_ci_test
 test_script:
   - echo "TESTING"
 deploy: off
