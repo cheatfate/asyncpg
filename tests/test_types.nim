@@ -234,7 +234,11 @@ proc testTypes(conn: apgConnection) {.async.} =
     doAssert(value == "John John")
     # expect "John John"
 
-var connStr = "host=localhost port=5432 dbname=travis_ci_test user=postgres"
+when defined(windows):
+  var connStr = "host=localhost port=5432 dbname=appveyor_ci_test user=postgres password=Password12!"
+else:
+  var connStr = "host=localhost port=5432 dbname=travis_ci_test user=postgres"
+
 var conn = waitFor connect(connStr)
 waitFor testTypes(conn)
 close(conn)

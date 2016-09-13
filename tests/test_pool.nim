@@ -38,7 +38,12 @@ proc testWithConnection(pool: apgPool): Future[bool] {.async.} =
       result = false
 
 var pool = newPool(POOL_SIZE)
-var connStr = "host=localhost port=5432 dbname=travis_ci_test user=postgres"
+
+when defined(windows):
+  var connStr = "host=localhost port=5432 dbname=appveyor_ci_test user=postgres password=Password12!"
+else:
+  var connStr = "host=localhost port=5432 dbname=travis_ci_test user=postgres"
+
 waitFor pool.connect(connStr)
 block:
   var res = waitFor testPool(pool)

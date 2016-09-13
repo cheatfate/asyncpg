@@ -11,7 +11,11 @@ proc testRows(conn: apgConnection) {.async.} =
     doAssert(value1 == "3" and value2 == "4" and value3 == "5")
     close(res)
 
-var connStr = "host=localhost port=5432 dbname=travis_ci_test user=postgres"
+when defined(windows):
+  var connStr = "host=localhost port=5432 dbname=appveyor_ci_test user=postgres password=Password12!"
+else:
+  var connStr = "host=localhost port=5432 dbname=travis_ci_test user=postgres"
+
 var conn = waitFor connect(connStr)
 waitFor testRows(conn)
 close(conn)
