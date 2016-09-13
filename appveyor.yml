@@ -22,7 +22,6 @@ environment:
       platform: x86
 
 install:
-  - echo %PLATFORM%
   - if not exist "%MINGW_ARCHIVE%" appveyor DownloadFile "%MINGW_URL%" -FileName "%MINGW_ARCHIVE%"
   - 7z x -y "%MINGW_ARCHIVE%" > nul
   - set PATH=%CD%\%MINGW_DIR%\bin;%PATH%
@@ -30,10 +29,13 @@ install:
   - cd C:\Projects\Nim
   - git clone --depth 1 https://github.com/nim-lang/csources
   - cd csources
-  - if %PLATFORM% == "x64" (build64.bat) ELSE (build.bat)
+  - if "%PLATFORM%" == "x64" (build64.bat) else (build.bat)
   - cd ..
   - bin\nim c koch
   - koch boot -d:release
+  - set PATH=%CD%\Nim\bin;%PATH%
+  - cd C:\Projects\asyncpg
+  - nim
 
 build: off
 test: off
