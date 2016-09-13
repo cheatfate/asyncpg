@@ -958,7 +958,7 @@ macro exec*(conn: apgConnection|apgPool, statement: string,
           var ntp = getType(imp[1])
           getSequence(result, postNodes, param, ntp, np, valuesList,
                       lensList, typesList, formatsList)
-        of ntyArrayConstr:
+        of ntyArray, ntyArrayConstr:
           var imp = getTypeImpl(param)
           var ntp = getType(imp[2])
           getSequence(result, postNodes, param, ntp, np, valuesList,
