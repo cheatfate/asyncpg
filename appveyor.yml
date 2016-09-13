@@ -45,7 +45,7 @@ install:
 #  - cd ..
 
 build_script:
-  - psql createdb appveyor_ci_test
+  - psql -c 'create database appveyor_ci_test;' -U postgres
 test_script:
   - echo "TESTING"
 deploy: off
