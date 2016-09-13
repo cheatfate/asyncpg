@@ -25,5 +25,5 @@ install:
   - cd csources
   - build64.bat
   - cd ..
-  - bin/nim c koch
+  - bin\nim c koch
   - koch boot -d:release
