@@ -22,6 +22,7 @@ environment:
       platform: x86
 
 install:
+  - echo "%CD%"
   - if not exist "%MINGW_ARCHIVE%" appveyor DownloadFile "%MINGW_URL%" -FileName "%MINGW_ARCHIVE%"
   - 7z x -y "%MINGW_ARCHIVE%" > nul
   - set PATH=%CD%\%MINGW_DIR%\bin;%PATH%
@@ -33,10 +34,12 @@ install:
   - cd ..
   - bin\nim c koch
   - koch boot -d:release
-  - set PATH=%CD%\Nim\bin;%PATH%
+  - set PATH=C:\Projects\Nim\bin;%PATH%
   - cd C:\Projects\asyncpg
   - nim
 
-build: off
-test: off
+build-script:
+  - echo "BUILDING"
+test-script:
+  - echo "TESTING"
 deploy: off
