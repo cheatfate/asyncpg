@@ -38,8 +38,8 @@ install:
   - cd C:\Projects\asyncpg
   - nim
 
-build-script:
+build_script:
   - echo "BUILDING"
-test-script:
+test_script:
   - echo "TESTING"
 deploy: off
