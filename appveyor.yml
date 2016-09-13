@@ -4,6 +4,9 @@ cache:
 - x86_64-4.9.2-release-win32-seh-rt_v4-rev4.7z
 - i686-4.9.2-release-win32-dwarf-rt_v4-rev4.7z
 
+services:
+  - postgresql94
+
 matrix:
   fast_finish: true     # set this flag to immediately finish build once one of the jobs fails.
   allow_failures:
@@ -22,20 +25,24 @@ environment:
       platform: x86
 
 install:
-  - if not exist "%MINGW_ARCHIVE%" appveyor DownloadFile "%MINGW_URL%" -FileName "%MINGW_ARCHIVE%"
+  - SET PGUSER=postgres
+  - SET PGPASSWORD=Password12!
+  - IF not exist "%MINGW_ARCHIVE%" appveyor DownloadFile "%MINGW_URL%" -FileName "%MINGW_ARCHIVE%"
   - 7z x -y "%MINGW_ARCHIVE%" > nul
-  - set PATH=%CD%\%MINGW_DIR%\bin;%CD%\Nim\bin;%PATH%
+  - SET PATH=%CD%\%MINGW_DIR%\bin;%CD%\Nim\bin;C:\Program Files\PostgreSQL\9.4\bin\;%PATH%
   - git clone https://github.com/nim-lang/Nim.git %CD%\Nim
   - cd %CD%\Nim
   - git clone --depth 1 https://github.com/nim-lang/csources
   - cd csources
-  - if "%PLATFORM%" == "x64" (build64.bat) else (build.bat)
+  - IF "%PLATFORM%" == "x64" (build64.bat) else (build.bat)
   - cd ..
   - bin\nim c koch
   - koch boot -d:release
-  - echo "%PATH%"
   - cd %CD%
-  - nim
+  - nim e install_nimble.nims
+  - nimble update
+  - cd ..
+  - psql -c 'create database appveyor_ci_test;' -U postgres
 
 build_script:
   - echo "BUILDING"
