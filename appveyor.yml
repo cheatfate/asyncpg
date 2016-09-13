@@ -51,8 +51,26 @@ build_script:
   - nim c --path:"." tests/test_rows.nim
   - nim c --path:"." tests/test_notifies.nim
   - nim c --path:"." tests/test_utils.nim
+  - rename tests/test_types.nim tests/test_types_plain.exe
+  - rename tests/test_pool.nim tests/test_pool_plain.exe
+  - rename tests/test_rows.nim tests/test_rows_plain.exe
+  - rename tests/test_notifies.nim tests/test_notifies_plain.exe
+  - rename tests/test_utils.nim tests/test_utils_plain.exe
+  - nimble install asyncpg
+  - cd tests
+  - nim c test_types.nim
+  - nim c test_pool.nim
+  - nim c test_rows.nim
+  - nim c test_notifies.nim
+  - nim c test_utils.nim
+  - cd ..
 
 test_script:
+  - tests\test_types_plain
+  - tests\test_pool_plain
+  - tests\test_rows_plain
+  - tests\test_notifies_plain
+  - tests\test_utils_plain
   - tests\test_types
   - tests\test_pool
   - tests\test_rows
