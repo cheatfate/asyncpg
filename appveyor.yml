@@ -1,9 +1,0 @@
-install:
-  - git clone https://github.com/nim-lang/Nim.git C:\projects\Nim
-  - cd C:\Projects\Nim
-  - git clone --depth 1 https://github.com/nim-lang/csources
-  - cd csources
-  - build64.bat
-  - cd ..
-  - bin/nim c koch
-  - koch boot -d:release
