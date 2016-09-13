@@ -25,6 +25,7 @@ environment:
       platform: x86
 
 install:
+  - dir C:\
   - SET PGUSER=postgres
   - SET PGPASSWORD=Password12!
   - IF not exist "%MINGW_ARCHIVE%" appveyor DownloadFile "%MINGW_URL%" -FileName "%MINGW_ARCHIVE%"
