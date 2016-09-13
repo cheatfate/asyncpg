@@ -25,6 +25,10 @@ environment:
       platform: x86
 
 install:
+  - copy C:\OpenSSL-Win64\libeay32.dll %CD%\libeay64.dll &
+    copy C:\OpenSSL-Win64\libeay32.dll %CD%\libeay32.dll &
+    copy C:\OpenSSL-Win64\libssl32.dll %CD%\libssl64.dll &
+    copy C:\OpenSSL-Win64\libssl32.dll %CD%\libssl32.dll
   - SET PGUSER=postgres
   - SET PGPASSWORD=Password12!
   - IF not exist "%MINGW_ARCHIVE%" appveyor DownloadFile "%MINGW_URL%" -FileName "%MINGW_ARCHIVE%"
