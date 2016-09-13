@@ -42,7 +42,7 @@ install:
   - koch boot -d:release
   - nim e install_nimble.nims
   - nimble update
-  - cd %CD%
+  - cd C:\projects\asyncpg
 
 build_script:
   - psql -U postgres -c "create database appveyor_ci_test;"
