@@ -1,4 +1,4 @@
-# asyncPG [![Build Status](https://travis-ci.org/cheatfate/asyncpg.svg?branch=master)](https://travis-ci.org/cheatfate/asyncpg)
+# asyncPG [![Build Status](https://travis-ci.org/cheatfate/asyncpg.svg?branch=master)](https://travis-ci.org/cheatfate/asyncpg) [![Build status](https://ci.appveyor.com/api/projects/status/4qjvcs9q5f92an0e?svg=true)](https://ci.appveyor.com/project/cheatfate/asyncpg)
 
 Asynchronous PostgreSQL driver for Nim Language [http://www.nim-lang.org](http://nim-lang.org/)
 
