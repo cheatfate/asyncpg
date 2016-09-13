@@ -39,12 +39,12 @@ install:
   - bin\nim c koch
   - koch boot -d:release
   - IF "%PLATFORM%" == "x64" (
-      copy C:\OpenSSL-Win64\libeay32.dll %CD%\Nim\bin\libeay64.dll;
-      copy C:\OpenSSL-Win64\libeay32.dll %CD%\Nim\bin\libeay32.dll;
-      copy C:\OpenSSL-Win64\libssl32.dll %CD%\Nim\bin\libssl64.dll;
+      copy C:\OpenSSL-Win64\libeay32.dll %CD%\Nim\bin\libeay64.dll &
+      copy C:\OpenSSL-Win64\libeay32.dll %CD%\Nim\bin\libeay32.dll &
+      copy C:\OpenSSL-Win64\libssl32.dll %CD%\Nim\bin\libssl64.dll &
       copy C:\OpenSSL-Win64\libssl32.dll %CD%\Nim\bin\libssl32.dll
     ) ELSE (
-      copy C:\OpenSSL-Win32\libeay32.dll %CD%\Nim\bin\libeay32.dll;
+      copy C:\OpenSSL-Win32\libeay32.dll %CD%\Nim\bin\libeay32.dll &
       copy C:\OpenSSL-Win32\libssl32.dll %CD%\Nim\bin\libssl32.dll
     )
   - cd %CD%
