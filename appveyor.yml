@@ -15,11 +15,11 @@ environment:
     - MINGW_DIR: mingw64
       MINGW_URL: https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/4.9.2/threads-win32/seh/x86_64-4.9.2-release-win32-seh-rt_v4-rev4.7z/download
       MINGW_ARCHIVE: x86_64-4.9.2-release-win32-seh-rt_v4-rev4.7z
-      WINDBG_DIR: '%ProgramFiles(x86)%\Windows Kits\8.1\Debuggers\x64'
+      platform: x64
     - MINGW_DIR: mingw32
       MINGW_URL: https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/4.9.2/threads-win32/dwarf/i686-4.9.2-release-win32-dwarf-rt_v4-rev4.7z/download
       MINGW_ARCHIVE: i686-4.9.2-release-win32-dwarf-rt_v4-rev4.7z
-      WINDBG_DIR: '%ProgramFiles(x86)%\Windows Kits\8.1\Debuggers\x86'
+      platform: x86
 
 install:
   - echo %PLATFORM%
@@ -30,9 +30,11 @@ install:
   - cd C:\Projects\Nim
   - git clone --depth 1 https://github.com/nim-lang/csources
   - cd csources
-  - build64.bat
+  - if %PLATFORM% == "x64" (build64.bat) ELSE (build.bat)
   - cd ..
   - bin\nim c koch
   - koch boot -d:release
 
 build: off
+test: off
+deploy: off
