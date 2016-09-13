@@ -11,6 +11,9 @@
 
 import strutils, byteswap
 
+when defined(windows) and defined(gcc):
+  {.passC:"-mno-ms-bitfields".}
+
 type
   pgUncArray {.unchecked.}[T] = array[0..100_000_000, T]
 
@@ -175,9 +178,3 @@ proc len*[T](pga: pgArray[T]): int =
 
 proc free*[T](pga: pgArray[T]) =
   dealloc(pga.p)
-
-when isMainModule:
-  var c = newPgArray[int]([1, 2, 3, 4], true)
-  echo $c
-  var d = newPgArray[string](["1112", "33333334", "5555555555555556"])
-  echo $d
