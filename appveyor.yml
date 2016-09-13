@@ -22,6 +22,7 @@ environment:
       WINDBG_DIR: '%ProgramFiles(x86)%\Windows Kits\8.1\Debuggers\x86'
 
 install:
+  - echo %PLATFORM%
   - if not exist "%MINGW_ARCHIVE%" appveyor DownloadFile "%MINGW_URL%" -FileName "%MINGW_ARCHIVE%"
   - 7z x -y "%MINGW_ARCHIVE%" > nul
   - set PATH=%CD%\%MINGW_DIR%\bin;%PATH%
