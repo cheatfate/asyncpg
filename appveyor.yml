@@ -53,10 +53,10 @@ build_script:
   - nim c --path:"." tests/test_utils.nim
 
 test_script:
-  - tests/test_types
-  - tests/test_pool
-  - tests/test_rows
-  - tests/test_notifies
-  - tests/test_utils
+  - tests\test_types
+  - tests\test_pool
+  - tests\test_rows
+  - tests\test_notifies
+  - tests\test_utils
 
 deploy: off
