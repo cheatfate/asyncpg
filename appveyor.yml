@@ -25,8 +25,6 @@ environment:
       platform: x86
 
 install:
-  - dir C:\OpenSSL-Win64\
-  - dir C:\OpenSSL-Win32\
   - SET PGUSER=postgres
   - SET PGPASSWORD=Password12!
   - IF not exist "%MINGW_ARCHIVE%" appveyor DownloadFile "%MINGW_URL%" -FileName "%MINGW_ARCHIVE%"
@@ -40,7 +38,15 @@ install:
   - cd ..
   - bin\nim c koch
   - koch boot -d:release
-  - copy C:\OpenSSL-Win64\
+  - IF "%PLATFORM%" == "x64" (
+      copy C:\OpenSSL-Win64\libeay32.dll %CD%\Nim\bin\libeay64.dll;
+      copy C:\OpenSSL-Win64\libeay32.dll %CD%\Nim\bin\libeay32.dll;
+      copy C:\OpenSSL-Win64\libssl32.dll %CD%\Nim\bin\libssl64.dll;
+      copy C:\OpenSSL-Win64\libssl32.dll %CD%\Nim\bin\libssl32.dll
+    ) ELSE (
+      copy C:\OpenSSL-Win32\libeay32.dll %CD%\Nim\bin\libeay32.dll;
+      copy C:\OpenSSL-Win32\libssl32.dll %CD%\Nim\bin\libssl32.dll
+    )
   - cd %CD%
   - nim e install_nimble.nims
   - nimble update
