@@ -1,4 +1,4 @@
-init:
+install:
   - git clone https://github.com/nim-lang/Nim.git C:\projects\Nim
   - cd C:\Projects\Nim
   - git clone --depth 1 https://github.com/nim-lang/csources
@@ -7,6 +7,3 @@ init:
   - cd ..
   - bin/nim c koch
   - koch boot -d:release
-branches:
-  only:
-  	- master
