@@ -7,8 +7,8 @@ cache:
 matrix:
   fast_finish: true     # set this flag to immediately finish build once one of the jobs fails.
   allow_failures:
-    - platform: x86
     - platform: x64
+    - platform: x86
 
 environment:
   matrix:
