@@ -4,4 +4,4 @@ author      = "Eugene Kabanov"
 description = "Asynchronous PostgreSQL driver for Nim"
 license     = "MIT"
 # Deps
-requires "nim >= 0.14.2"
+requires "nim >= 0.16.0"
