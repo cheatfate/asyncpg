@@ -13,7 +13,7 @@ before_script:
   - bin/nim c koch
   - ./koch boot -d:release
   - export PATH=$(pwd)/bin:$PATH
-  - nim e install_nimble.nims
+  - ./koch nimble
   - nimble update
   - cd ..
   - psql -c 'create database travis_ci_test;' -U postgres
