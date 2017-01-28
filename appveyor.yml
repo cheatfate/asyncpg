@@ -40,7 +40,7 @@ install:
   - cd ..
   - bin\nim c koch
   - koch boot -d:release
-  - nim e install_nimble.nims
+  - koch nimble
   - nimble update
   - cd C:\projects\asyncpg
 
