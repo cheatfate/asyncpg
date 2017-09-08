@@ -11,6 +11,13 @@ proc testRows(conn: apgConnection) {.async.} =
     doAssert(value1 == "3" and value2 == "4" and value3 == "5")
     close(res)
 
+  block: # issue #1
+    var res = await asyncpg.exec(conn, "SELECT unnest(ARRAY['1', '2', '3']);")
+    var value = ""
+    for item in res[0].rows():
+      value = value & item[0]
+    doAssert(value == "123")
+
 when defined(windows):
   var connStr = "host=localhost port=5432 dbname=appveyor_ci_test user=postgres password=Password12!"
 else:

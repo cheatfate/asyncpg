@@ -552,6 +552,8 @@ iterator rows*(pgres: PPGresult): Row =
   var L = pqnfields(pgres)
   var R = pqntuples(pgres)
   var result = newSeq[string](L)
+  for i in 0..<L:
+    result[i] = ""
   for i in 0..<R:
     setRowInline(pgres, result, i, L)
     yield result
