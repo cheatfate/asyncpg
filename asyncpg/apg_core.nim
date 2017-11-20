@@ -617,7 +617,7 @@ proc castPointer(n: NimNode): NimNode {.compileTime.} =
 # cast[<v>](addr <n>[0])
 proc castPointer0(n: NimNode, v: string): NimNode {.compileTime.} =
   result = newNimNode(nnkCast).add(
-    newIdentNode(!v),
+    newIdentNode(v),
     newNimNode(nnkCommand).add(
       newIdentNode("addr"),
       newNimNode(nnkBracketExpr).add(n, newLit(0))
