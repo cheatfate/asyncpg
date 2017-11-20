@@ -611,38 +611,38 @@ proc newVarArray(n, v: NimNode): NimNode {.compileTime.} =
 # cast[pointer](addr <n>)
 proc castPointer(n: NimNode): NimNode {.compileTime.} =
   result = newNimNode(nnkCast).add(
-    newIdentNode(!"pointer"),
-    newNimNode(nnkCommand).add(newIdentNode(!"addr"), n)
+    newIdentNode("pointer"),
+    newNimNode(nnkCommand).add(newIdentNode("addr"), n)
   )
 # cast[<v>](addr <n>[0])
 proc castPointer0(n: NimNode, v: string): NimNode {.compileTime.} =
   result = newNimNode(nnkCast).add(
     newIdentNode(!v),
     newNimNode(nnkCommand).add(
-      newIdentNode(!"addr"),
+      newIdentNode("addr"),
       newNimNode(nnkBracketExpr).add(n, newLit(0))
     )
   )
 # <v>.Oid
 proc castOid(v: int): NimNode {.compileTime.} =
-  result = newDotExpr(newLit(v), newIdentNode(!"Oid"))
+  result = newDotExpr(newLit(v), newIdentNode("Oid"))
 # len(<v>)
 proc callLength(n: NimNode): NimNode {.compileTime.} =
-  result = newNimNode(nnkCall).add(newIdentNode(!"len"), n)
+  result = newNimNode(nnkCall).add(newIdentNode("len"), n)
 # size(<v>)
 proc callSize(n: NimNode): NimNode {.compileTime.} =
-  result = newNimNode(nnkCall).add(newIdentNode(!"size"), n)
+  result = newNimNode(nnkCall).add(newIdentNode("size"), n)
 # raw(<v>)
 proc callRaw(n: NimNode): NimNode {.compileTime.} =
-  result = newNimNode(nnkCall).add(newIdentNode(!"raw"), n)
+  result = newNimNode(nnkCall).add(newIdentNode("raw"), n)
 # cast[<v>](n)
 proc castSome(n: NimNode, v: string): NimNode {.compileTime.} =
-  result = newNimNode(nnkCast).add(newIdentNode(!v), n)
+  result = newNimNode(nnkCast).add(newIdentNode(v), n)
 # var <n> = prepare(<v>)
 proc newVarInteger(n, v: NimNode): NimNode {.compileTime.} =
   result = newNimNode(nnkVarSection).add(
     newNimNode(nnkIdentDefs).add(
-      n, newEmptyNode(), newNimNode(nnkCall).add(newIdentNode(!"prepare"), v)
+      n, newEmptyNode(), newNimNode(nnkCall).add(newIdentNode("prepare"), v)
     )
   )
 # var <n> = <v>
@@ -667,7 +667,7 @@ proc newVarStringify(n, v: NimNode): NimNode {.compileTime.} =
   result = newNimNode(nnkVarSection).add(
     newNimNode(nnkIdentDefs).add(n, newEmptyNode(),
       newNimNode(nnkPrefix).add(
-        newIdentNode(!"$"),
+        newIdentNode("$"),
         newNimNode(nnkPar).add(v)
       )
     )
@@ -679,7 +679,7 @@ proc newVarFloat(n, i, v: NimNode): NimNode {.compileTime.} =
     newNimNode(nnkIdentDefs).add(
       n, newEmptyNode(),
       newNimNode(nnkCall).add(
-        newIdentNode(!"prepare"),
+        newIdentNode("prepare"),
         newNimNode(nnkCast).add(v, i)
       )
     )
@@ -691,9 +691,9 @@ proc newVarSeq(n, v: NimNode, s: string): NimNode {.compileTime.} =
       n, newEmptyNode(),
       newCall(
         newNimNode(nnkBracketExpr).add(
-          newIdentNode(!"newPgArray"),
-          newIdentNode(!s)
-        ), v, newIdentNode(!"true")
+          newIdentNode("newPgArray"),
+          newIdentNode(s)
+        ), v, newIdentNode("true")
       )
     )
   )
@@ -701,13 +701,13 @@ proc newVarSeq(n, v: NimNode, s: string): NimNode {.compileTime.} =
 proc newVarJson(n, v: NimNode): NimNode {.compileTime.} =
   result = newNimNode(nnkVarSection).add(
     newNimNode(nnkIdentDefs).add(
-      n, newEmptyNode(), newCall(newIdentNode(!"newPgJson"), v)
+      n, newEmptyNode(), newCall(newIdentNode("newPgJson"), v)
     )
   )
 # addr(<n>[0])
 proc newAddr0(n: NimNode): NimNode {.compileTime.} =
   result = newNimNode(nnkCommand).add(
-             newIdentNode(!"addr"),
+             newIdentNode("addr"),
              newNimNode(nnkBracketExpr).add(n, newLit(0))
            )
 # this is copy of newLit(int) but makes int32
@@ -718,8 +718,8 @@ proc newLit(i: int32): NimNode {.compileTime.} =
 # echo(repr(<n>))
 # proc newEchoVar(n: NimNode): NimNode {.compileTime.} =
 #   result = newNimNode(nnkCall).add(
-#     newIdentNode(!"echo"),
-#     newNimNode(nnkCall).add(newIdentNode(!"repr"), n)
+#     newIdentNode("echo"),
+#     newNimNode(nnkCall).add(newIdentNode("repr"), n)
 #   )
 proc `$`(ntyType: NimTypeKind): string =
   var names = ["int", "int8", "int16", "int32", "int64", "float", "float32",
@@ -860,7 +860,7 @@ proc getSequence(ls, ps, op, ntp, np, pv, pl, pt, pf: NimNode) {.compileTime.} =
     pl.add(castSome(callSize(np), "int32"))
     pt.add(castOid(getOidArray(impType)))
     pf.add(newLit(1'i32))
-    ps.add(newCall(newIdentNode(!"free"), np))
+    ps.add(newCall(newIdentNode("free"), np))
   else:
     showError("Argument's type `seq[" & $impType & "]`is not supported", op)
 
@@ -914,7 +914,7 @@ macro exec*(conn: apgConnection|apgPool, statement: string,
       case kiType
         of ntyBool:
           let oid = getOidSimple(kiType)
-          result.add(newVarCast(np, param, newIdentNode(!"int8")))
+          result.add(newVarCast(np, param, newIdentNode("int8")))
           valuesList.add(castPointer(np))
           lensList.add(newLit(oid.size.int32))
           typesList.add(castOid(oid.oid))
@@ -937,9 +937,9 @@ macro exec*(conn: apgConnection|apgPool, statement: string,
           let oid = getOidSimple(kiType)
           var nident: NimNode
           if kiType == ntyFloat or kiType == ntyFloat64:
-            nident = newIdentNode(!"int64")
+            nident = newIdentNode("int64")
           else:
-            nident = newIdentNode(!"int32")
+            nident = newIdentNode("int32")
           result.add(newVarFloat(np, param, nident))
           valuesList.add(castPointer(np))
           lensList.add(newLit(oid.size.int32))
@@ -974,7 +974,7 @@ macro exec*(conn: apgConnection|apgPool, statement: string,
             lensList.add(castSome(callSize(np), "int32"))
             typesList.add(castOid(3802))
             formatsList.add(newLit(1'i32))
-            postNodes.add(newCall(newIdentNode(!"free"), np))
+            postNodes.add(newCall(newIdentNode("free"), np))
           of "Json":
             result.add(newVarStringify(np, param[1]))
             valuesList.add(castPointer0(np, "pointer"))
