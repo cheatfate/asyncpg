@@ -58,24 +58,14 @@ proc pqserverVersion(conn: PPGconn): cint
 
 proc getFreeConnection(pool: apgPool): Future[int] =
   var retFuture = newFuture[int]("asyncpg.getFreeConnection")
-  proc cb() =
-    if not retFuture.finished:
-      var index = 0
-      while index < len(pool.futures):
-        let fut = pool.futures[index]
-        if fut == nil or fut.finished:
-          var replaceFuture = newFuture[void]("asyncpg.pool." & $index)
-          pool.futures[index] = replaceFuture
-          retFuture.complete(index)
-          break
-        inc(index)
-  cb()
-  # this code will run only if there no available connections left
-  if not retFuture.finished:
-    var index = 0
-    while index < len(pool.futures):
-      pool.futures[index].callback = cb
-      inc(index)
+  for index, f in pool.futures:
+    if f == nil or f.finished:
+      var replaceFuture = newFuture[void]("asyncpg.pool." & $index)
+      pool.futures[index] = replaceFuture
+      retFuture.complete(index)
+      return retFuture
+  # could not find a free connection, return -1
+  retFuture.complete(-1)
   return retFuture
 
 # proc getIndexConnection(pool: apgPool, index: int): Future[int] =
@@ -238,7 +228,7 @@ template processPendingNotifications(conn: apgConnection, notify: bool) =
 proc copyTo*(conn: apgConnection, buffer: pointer,
             nbytes: int32): Future[apgResult] =
   ## Copy data from buffer ``buffer`` of size ``nbytes`` to PostgreSQL's
-  ## stdin. 
+  ## stdin.
   ## Be sure to execute ``COPY FROM`` statement before start sending data with
   ## this function. After all data have been sent, you need to finish sending
   ## process with call ``copyTo(conn, nil, 0)``.
@@ -345,7 +335,7 @@ proc copyFromInto*(conn: apgConnection, buffer: pointer,
 
   proc cb(fd: AsyncFD): bool {.closure,gcsafe.} =
     if not retFuture.finished:
-      let res = pqgetCopyData(conn.pgconn, cast[cstringArray](addr copyString), 
+      let res = pqgetCopyData(conn.pgconn, cast[cstringArray](addr copyString),
                               1)
       if res > 0:
         doAssert(res.int <= nbytes)
@@ -466,6 +456,9 @@ proc execPoolAsync(pool: apgPool, statement: string, pN: int32, pT: POid,
                    pV: cstringArray, pL, pF: ptr int32,
                    rF: int32): Future[apgResult] {.async.} =
   var index = await getFreeConnection(pool)
+  while index == -1:
+    index = await getFreeConnection(pool)
+    await sleepAsync(1)
   result = await execAsync(pool.connections[index], statement, pN, pT,
                            pV, pL, pF, rF, false)
   # processing connection notifies
@@ -500,7 +493,7 @@ template setRow(pgres: PPGresult, r, line, cols) =
   for col in 0..<cols:
     let x = pqgetvalue(pgres, line.int32, col.int32)
     if x.isNil:
-      r[col] = nil
+      r[col] = ""
     else:
       r[col] = $x
 
@@ -509,7 +502,7 @@ template setRowInline(pgres: PPGresult, r, line, cols) =
     setLen(r[col], 0)
     let x = pqgetvalue(pgres, line.int32, col.int32)
     if x.isNil:
-      r[col] = nil
+      r[col] = ""
     else:
       add(r[col], x)
 
