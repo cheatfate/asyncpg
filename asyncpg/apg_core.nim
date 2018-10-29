@@ -238,7 +238,7 @@ template processPendingNotifications(conn: apgConnection, notify: bool) =
 proc copyTo*(conn: apgConnection, buffer: pointer,
             nbytes: int32): Future[apgResult] =
   ## Copy data from buffer ``buffer`` of size ``nbytes`` to PostgreSQL's
-  ## stdin. 
+  ## stdin.
   ## Be sure to execute ``COPY FROM`` statement before start sending data with
   ## this function. After all data have been sent, you need to finish sending
   ## process with call ``copyTo(conn, nil, 0)``.
@@ -345,7 +345,7 @@ proc copyFromInto*(conn: apgConnection, buffer: pointer,
 
   proc cb(fd: AsyncFD): bool {.closure,gcsafe.} =
     if not retFuture.finished:
-      let res = pqgetCopyData(conn.pgconn, cast[cstringArray](addr copyString), 
+      let res = pqgetCopyData(conn.pgconn, cast[cstringArray](addr copyString),
                               1)
       if res > 0:
         doAssert(res.int <= nbytes)
@@ -500,7 +500,7 @@ template setRow(pgres: PPGresult, r, line, cols) =
   for col in 0..<cols:
     let x = pqgetvalue(pgres, line.int32, col.int32)
     if x.isNil:
-      r[col] = nil
+      r[col] = ""
     else:
       r[col] = $x
 
@@ -509,7 +509,7 @@ template setRowInline(pgres: PPGresult, r, line, cols) =
     setLen(r[col], 0)
     let x = pqgetvalue(pgres, line.int32, col.int32)
     if x.isNil:
-      r[col] = nil
+      r[col] = ""
     else:
       add(r[col], x)
 
