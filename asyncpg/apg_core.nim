@@ -58,24 +58,14 @@ proc pqserverVersion(conn: PPGconn): cint
 
 proc getFreeConnection(pool: apgPool): Future[int] =
   var retFuture = newFuture[int]("asyncpg.getFreeConnection")
-  proc cb() =
-    if not retFuture.finished:
-      var index = 0
-      while index < len(pool.futures):
-        let fut = pool.futures[index]
-        if fut == nil or fut.finished:
-          var replaceFuture = newFuture[void]("asyncpg.pool." & $index)
-          pool.futures[index] = replaceFuture
-          retFuture.complete(index)
-          break
-        inc(index)
-  cb()
-  # this code will run only if there no available connections left
-  if not retFuture.finished:
-    var index = 0
-    while index < len(pool.futures):
-      pool.futures[index].callback = cb
-      inc(index)
+  for index, f in pool.futures:
+    if f == nil or f.finished:
+      var replaceFuture = newFuture[void]("asyncpg.pool." & $index)
+      pool.futures[index] = replaceFuture
+      retFuture.complete(index)
+      return retFuture
+  # could not find a free connection, return -1
+  retFuture.complete(-1)
   return retFuture
 
 # proc getIndexConnection(pool: apgPool, index: int): Future[int] =
@@ -466,6 +456,9 @@ proc execPoolAsync(pool: apgPool, statement: string, pN: int32, pT: POid,
                    pV: cstringArray, pL, pF: ptr int32,
                    rF: int32): Future[apgResult] {.async.} =
   var index = await getFreeConnection(pool)
+  while index == -1:
+    index = await getFreeConnection(pool)
+    await sleepAsync(1)
   result = await execAsync(pool.connections[index], statement, pN, pT,
                            pV, pL, pF, rF, false)
   # processing connection notifies
