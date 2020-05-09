@@ -15,14 +15,12 @@ when defined(windows) and defined(gcc):
   {.passC:"-mno-ms-bitfields".}
 
 type
-  pgUncArray {.unchecked.}[T] = array[0..100_000_000, T]
-
   pgArray*[T] = object
     p: pointer
     size: int
     swap: bool
 
-  pgArrayElement* {.packed.} [T] = object
+  pgArrayElement* [T] {.packed.} = object
     size: int32
     value: T
 
@@ -70,7 +68,7 @@ proc newPgArray*[T](x: openarray[T], swap = false): pgArray[T] =
     size += len(x) * sizeof(int32) + 20
 
     var p = alloc(size)
-    var h = cast[ptr pgUncArray[int32]](p)
+    var h = cast[ptr UncheckedArray[int32]](p)
     var d = cast[pointer](p + 20)
 
     h[0] = prepare(1'i32) # NDIM
@@ -96,8 +94,8 @@ proc newPgArray*[T](x: openarray[T], swap = false): pgArray[T] =
   else:
     var size = sizeof(pgArrayElement[T]) * len(x) + 20
     var p = alloc(size)
-    var h = cast[ptr pgUncArray[int32]](p)
-    var d = cast[ptr pgUncArray[pgArrayElement[T]]](p + 20)
+    var h = cast[ptr UncheckedArray[int32]](p)
+    var d = cast[ptr UncheckedArray[pgArrayElement[T]]](p + 20)
 
     h[0] = prepare(1'i32) # NDIM
     h[1] = 0 # FLAGS
@@ -123,7 +121,7 @@ proc raw*[T](pga: pgArray[T]): pointer =
   result = pga.p
 
 proc `$`*[T](pga: pgArray[T]): string =
-  var h = cast[ptr pgUncArray[int32]](pga.p)
+  var h = cast[ptr UncheckedArray[int32]](pga.p)
   result = "PGARRAY at 0x" & toHex(cast[int](pga.p), sizeof(int) * 2) & "\n"
   result &= "header = [ndim = " & $prepare(h[0]) & ", "
   result &= "flags = " & $prepare(h[1]) & ", "
@@ -150,7 +148,7 @@ proc `$`*[T](pga: pgArray[T]): string =
         r = r & "'" & cs & "'/" & $s
       inc(i)
   else:
-    var d = cast[ptr pgUncArray[pgArrayElement[T]]](pga.p + 20)
+    var d = cast[ptr UncheckedArray[pgArrayElement[T]]](pga.p + 20)
     var i = 0
     var length = prepare(h[3]).int
     var r = ""
@@ -173,7 +171,7 @@ proc size*[T](pga: pgArray[T]): int =
   result = pga.size
 
 proc len*[T](pga: pgArray[T]): int =
-  var h = cast[ptr pgUncArray[int32]](pga.p)
+  var h = cast[ptr UncheckedArray[int32]](pga.p)
   result = h[3].int
 
 proc free*[T](pga: pgArray[T]) =
