@@ -15,8 +15,6 @@ type
   JsonB* = distinct JsonNode
   Json* = distinct JsonNode
 
-  pgUncArray {.unchecked.}[T] = array[0..100_000_000, T]
-
   pgJson = object
     p: pointer
     size: int
@@ -28,7 +26,7 @@ proc newPgJson*(n: JsonNode): pgJson =
   var s = $n
   var size = len(s) + 1
   var p = alloc(size)
-  var h = cast[ptr pgUncArray[int8]](p)
+  var h = cast[ptr UncheckedArray[int8]](p)
   var d = cast[pointer](p + 1)
   h[0] = 1'i8
   copyMem(d, addr(s[0]), len(s))
@@ -38,7 +36,7 @@ proc raw*(pgj: pgJson): pointer =
   result = pgj.p
 
 proc `$`*(pgj: pgJson): string =
-  var h = cast[ptr pgUncArray[int32]](pgj.p)
+  var h = cast[ptr UncheckedArray[int32]](pgj.p)
   result = "PGJSON at 0x" & toHex(cast[int](pgj.p), sizeof(int) * 2) & "\n"
   result &= "header = [version = " & $prepare(h[0]) & "]\n"
   var d = cast[pointer](pgj.p + 1)

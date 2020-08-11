@@ -500,7 +500,7 @@ template setRow(pgres: PPGresult, r, line, cols) =
   for col in 0..<cols:
     let x = pqgetvalue(pgres, line.int32, col.int32)
     if x.isNil:
-      r[col] = nil
+      r[col] = "" # nil
     else:
       r[col] = $x
 
@@ -509,7 +509,7 @@ template setRowInline(pgres: PPGresult, r, line, cols) =
     setLen(r[col], 0)
     let x = pqgetvalue(pgres, line.int32, col.int32)
     if x.isNil:
-      r[col] = nil
+      r[col] = "" # nil
     else:
       add(r[col], x)
 
